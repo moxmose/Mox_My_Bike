@@ -12,9 +12,13 @@ val appModule = module {
             androidContext(),
             AppDatabase::class.java,
             "mox-my-bike-db"
-        ).build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     single { get<AppDatabase>().bikeDao() }
+    single { get<AppDatabase>().operationTypeDao() }
+    single { get<AppDatabase>().maintenanceLogDao() }
 
 }

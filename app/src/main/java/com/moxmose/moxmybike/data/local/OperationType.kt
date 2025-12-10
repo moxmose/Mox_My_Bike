@@ -3,10 +3,9 @@ package com.moxmose.moxmybike.data.local
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "bikes")
-data class Bike(
+@Entity(tableName = "operation_types")
+data class OperationType(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val description: String,
-    val photoUri: String? = null
+    val description: String
 )

@@ -7,13 +7,10 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface BikeDao {
+interface OperationTypeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBike(bike: Bike)
+    suspend fun insertOperationType(operationType: OperationType)
 
-    @Query("SELECT * FROM bikes ORDER BY description ASC")
-    fun getAllBikes(): Flow<List<Bike>>
-
-    @Query("SELECT * FROM bikes WHERE id = :bikeId")
-    fun getBikeById(bikeId: Int): Flow<Bike?>
+    @Query("SELECT * FROM operation_types ORDER BY description ASC")
+    fun getAllOperationTypes(): Flow<List<OperationType>>
 }
