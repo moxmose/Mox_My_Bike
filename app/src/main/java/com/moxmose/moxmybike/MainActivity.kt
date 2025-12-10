@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -23,6 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.moxmose.moxmybike.ui.bikes.BikesScreen
+import com.moxmose.moxmybike.ui.maintenancelog.MaintenanceLogScreen
+import com.moxmose.moxmybike.ui.operations.OperationTypeScreen
 import com.moxmose.moxmybike.ui.theme.MoxMyBikeTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,7 +45,7 @@ class MainActivity : ComponentActivity() {
 @PreviewScreenSizes
 @Composable
 fun MoxMyBikeApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.LOGS) }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -60,10 +65,13 @@ fun MoxMyBikeApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            when (currentDestination) {
+                AppDestinations.LOGS -> MaintenanceLogScreen()
+                AppDestinations.BIKES -> BikesScreen()
+                AppDestinations.OPERATIONS -> OperationTypeScreen()
+                AppDestinations.FAVORITES -> Greeting(name = "Favorites", modifier = Modifier.padding(innerPadding))
+                AppDestinations.PROFILE -> Greeting(name = "Profile", modifier = Modifier.padding(innerPadding))
+            }
         }
     }
 }
@@ -72,7 +80,9 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME("Home", Icons.Default.Home),
+    LOGS("Logs", Icons.Default.Home),
+    BIKES("Bikes", Icons.Default.List),
+    OPERATIONS("Operations", Icons.Default.Build),
     FAVORITES("Favorites", Icons.Default.Favorite),
     PROFILE("Profile", Icons.Default.AccountBox),
 }
