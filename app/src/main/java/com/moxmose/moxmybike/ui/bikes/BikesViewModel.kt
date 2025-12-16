@@ -23,4 +23,10 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
             bikeDao.insertBike(Bike(description = description))
         }
     }
+
+    fun updateBike(bike: Bike) {
+        viewModelScope.launch {
+            bikeDao.updateBike(bike)
+        }
+    }
 }
