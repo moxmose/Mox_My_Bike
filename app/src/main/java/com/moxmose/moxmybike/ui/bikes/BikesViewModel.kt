@@ -6,6 +6,7 @@ import com.moxmose.moxmybike.data.local.Bike
 import com.moxmose.moxmybike.data.local.BikeDao
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -20,13 +21,24 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
 
     fun addBike(description: String) {
         viewModelScope.launch {
-            bikeDao.insertBike(Bike(description = description))
+            val currentBikes = allBikes.first()
+            val newBike = Bike(
+                description = description,
+                displayOrder = currentBikes.size
+            )
+            bikeDao.insertBike(newBike)
         }
     }
 
     fun updateBike(bike: Bike) {
         viewModelScope.launch {
             bikeDao.updateBike(bike)
+        }
+    }
+
+    fun updateBikes(bikes: List<Bike>) {
+        viewModelScope.launch {
+            bikeDao.updateBikes(bikes)
         }
     }
 }

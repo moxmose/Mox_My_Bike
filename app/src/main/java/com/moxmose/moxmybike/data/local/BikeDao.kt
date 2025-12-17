@@ -15,7 +15,10 @@ interface BikeDao {
     @Update
     suspend fun updateBike(bike: Bike)
 
-    @Query("SELECT * FROM bikes ORDER BY description ASC")
+    @Update
+    suspend fun updateBikes(bikes: List<Bike>)
+
+    @Query("SELECT * FROM bikes ORDER BY displayOrder ASC")
     fun getAllBikes(): Flow<List<Bike>>
 
     @Query("SELECT * FROM bikes WHERE id = :bikeId")

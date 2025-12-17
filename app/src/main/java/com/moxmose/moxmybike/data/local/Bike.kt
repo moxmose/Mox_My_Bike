@@ -8,5 +8,6 @@ data class Bike(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val description: String,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val displayOrder: Int = 0
 )
