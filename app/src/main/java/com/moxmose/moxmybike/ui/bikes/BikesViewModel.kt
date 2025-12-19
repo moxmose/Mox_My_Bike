@@ -42,4 +42,10 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
             bikeDao.updateBikes(bikes)
         }
     }
+
+    fun dismissBike(bike: Bike) {
+        viewModelScope.launch {
+            updateBike(bike.copy(dismissed = true))
+        }
+    }
 }

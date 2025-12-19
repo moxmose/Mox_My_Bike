@@ -18,8 +18,11 @@ interface BikeDao {
     @Update
     suspend fun updateBikes(bikes: List<Bike>)
 
-    @Query("SELECT * FROM bikes ORDER BY displayOrder ASC")
+    @Query("SELECT * FROM bikes WHERE dismissed = 0 ORDER BY displayOrder ASC")
     fun getAllBikes(): Flow<List<Bike>>
+
+    @Query("SELECT * FROM bikes WHERE dismissed = 1 ORDER BY displayOrder ASC")
+    fun getDismissedBikes(): Flow<List<Bike>>
 
     @Query("SELECT * FROM bikes WHERE id = :bikeId")
     fun getBikeById(bikeId: Int): Flow<Bike?>

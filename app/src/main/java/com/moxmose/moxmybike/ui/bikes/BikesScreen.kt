@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DragHandle
@@ -528,6 +529,16 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                     text = bike.description,
                     modifier = Modifier.weight(1f)
                 )
+            }
+            if (isEditing) {
+                IconButton(
+                    onClick = { viewModel.dismissBike(bike) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Bike"
+                    )
+                }
             }
             IconButton(
                 onClick = {
