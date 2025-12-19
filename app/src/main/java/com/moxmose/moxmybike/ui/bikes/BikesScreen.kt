@@ -1,24 +1,40 @@
 package com.moxmose.moxmybike.ui.bikes
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -26,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -42,12 +59,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.moxmose.moxmybike.data.local.Bike
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -81,28 +105,38 @@ fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
             )
         }
 
-        DraggableLazyColumn(
-            items = bikes,
-            key = { _, bike -> bike.id },
-            onMove = { from, to ->
-                bikes = bikes.toMutableList().apply {
-                    add(to, removeAt(from))
+        Column(Modifier.padding(paddingValues)) {
+            Text(
+                text = "Hold and drag items to change order",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall
+            )
+            DraggableLazyColumn(
+                items = bikes,
+                key = { _, bike -> bike.id },
+                onMove = { from, to ->
+                    bikes = bikes.toMutableList().apply {
+                        add(to, removeAt(from))
+                    }
+                },
+                onDrop = {
+                    val reorderedBikes = bikes.mapIndexed { index, bike ->
+                        bike.copy(displayOrder = index)
+                    }
+                    viewModel.updateBikes(reorderedBikes)
+                },
+                modifier = Modifier.fillMaxSize(),
+                itemContent = { _, bike ->
+                    BikeCard(
+                        bike = bike,
+                        viewModel = viewModel
+                    )
                 }
-            },
-            onDrop = {
-                val reorderedBikes = bikes.mapIndexed { index, bike ->
-                    bike.copy(displayOrder = index)
-                }
-                viewModel.updateBikes(reorderedBikes)
-            },
-            modifier = Modifier.padding(paddingValues).fillMaxSize(),
-            itemContent = { _, bike ->
-                BikeCard(
-                    bike = bike,
-                    viewModel = viewModel
-                )
-            }
-        )
+            )
+        }
     }
 }
 
@@ -226,57 +260,18 @@ private class DragDropState(
         }
 
         if (targetItem != null) {
-            // All'interno della funzione onDrag
-                val from = currentDraggedIndex
-                val to = targetItem.index
-                if (from != to) {
-                    // 1. Esegui lo scambio dei dati
-                    onMove(from, to)
-
-                    // 2. Calcola e applica la compensazione basandoti sulle dimensioni
-                    val draggedItemSize = initiallyDraggedElement?.size ?: 0
-                    draggedDistance += if (from < to) {
-                        // Spostamento verso il basso: compensa all'indietro
-                        -(draggedItemSize.toFloat() + spacing)
-                    } else {
-                        // Spostamento verso l'alto: compensa in avanti
-                        (draggedItemSize.toFloat() + spacing)
-                    }
-
-                    // 3. AGGIORNA IL PUNTO DI RIFERIMENTO (LA CHIAVE DELLA SOLUZIONE)
-                    // Troviamo l'informazione aggiornata dell'elemento che stiamo trascinando
-                    // (che ora si trova all'indice 'to') e la salviamo come nuovo
-                    // punto di riferimento per il prossimo calcolo.
-                    initiallyDraggedElement = lazyListState.layoutInfo.visibleItemsInfo
-                        .find { it.index == to }
-
-                    // 4. Aggiorna l'indice corrente
-                    currentIndexOfDraggedItem = to
-
-            /*            val from = currentDraggedIndex
-                        val to = targetItem.index
-                        if (from != to) {
-                            // Esegui lo scambio dei dati
-                            onMove(from, to)
-            //                draggedDistance += if (from < to) -(targetItem.size + spacing) else (targetItem.size + spacing)
-
-                            // Ora compensa la distanza di trascinamento.
-                            // Usiamo la dimensione dell'elemento che abbiamo iniziato a trascinare,
-                            // che è un valore più stabile e affidabile.
-                            // Lo spazio tra gli elementi (spacing) va aggiunto per un calcolo preciso.
-                            val draggedItemSize = initiallyDraggedElement?.size ?: 0
-                            draggedDistance += if (from < to) {
-                                // Se mi sono spostato verso il basso (es: da indice 2 a 3), l'elemento "salta" in avanti.
-                                // Devo compensare la draggedDistance all'indietro (negativamente).
-                                -(draggedItemSize.toFloat() + spacing)
-                            } else {
-                                // Se mi sono spostato verso l'alto (es: da indice 3 a 2), l'elemento "salta" indietro.
-                                // Devo compensare la draggedDistance in avanti (positivamente).
-                                (draggedItemSize.toFloat() + spacing)
-                            }
-
-                            // Aggiorna l'indice dell'elemento trascinato
-                            currentIndexOfDraggedItem = to*/
+            val from = currentDraggedIndex
+            val to = targetItem.index
+            if (from != to) {
+                onMove(from, to)
+                val draggedItemSize = initiallyDraggedElement?.size ?: 0
+                draggedDistance += if (from < to) {
+                    -(draggedItemSize.toFloat() + spacing)
+                } else {
+                    (draggedItemSize.toFloat() + spacing)
+                }
+                initiallyDraggedElement = lazyListState.layoutInfo.visibleItemsInfo.find { it.index == to }
+                currentIndexOfDraggedItem = to
             }
         }
     }
@@ -341,9 +336,64 @@ fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String) -> Unit) {
 }
 
 @Composable
+fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        modifier = Modifier.padding(16.dp),
+        text = {
+            AsyncImage(
+                model = photoUri,
+                contentDescription = "Full-size bike photo",
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.Fit
+            )
+        }
+    )
+}
+
+@Composable
 fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifier) {
     var isEditing by remember { mutableStateOf(false) }
     var editedDescription by remember { mutableStateOf(bike.description) }
+    val context = LocalContext.current
+    var showFullImageDialog by remember { mutableStateOf<String?>(null) }
+    var showNoPictureDialog by remember { mutableStateOf(false) }
+
+    if (showNoPictureDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoPictureDialog = false },
+            title = { Text("No Image") },
+            text = { Text("No picture loaded, add one.") },
+            confirmButton = {
+                TextButton(onClick = { showNoPictureDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    showFullImageDialog?.let { uri ->
+        FullImageDialog(photoUri = uri, onDismiss = { showFullImageDialog = null })
+    }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, flags)
+            } catch (e: SecurityException) {
+                Log.e("BikeCard", "Failed to take persistable URI permission", e)
+            }
+            viewModel.updateBike(bike.copy(photoUri = it.toString()))
+        }
+    }
 
     LaunchedEffect(bike.description) {
         if (!isEditing) {
@@ -351,14 +401,65 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
         }
     }
 
+    val imageRequest = ImageRequest.Builder(context)
+        .data(bike.photoUri)
+        .crossfade(true)
+        .build()
+
+    val placeholderPainter = rememberVectorPainter(image = Icons.Filled.DirectionsBike)
+
     Card(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize()
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
+                    .clickable {
+                        if (isEditing) {
+                            imagePickerLauncher.launch("image/*")
+                        } else {
+                            if (bike.photoUri != null) {
+                                showFullImageDialog = bike.photoUri
+                            } else {
+                                showNoPictureDialog = true
+                            }
+                        }
+                    }
+            ) {
+                if (bike.photoUri != null) {
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = "Bike Photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = placeholderPainter,
+                        error = placeholderPainter
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DirectionsBike,
+                            contentDescription = "Bike Photo",
+                            modifier = Modifier.size(36.dp), // 10% smaller
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             if (isEditing) {
                 OutlinedTextField(
                     value = editedDescription,
@@ -385,6 +486,10 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                     contentDescription = if (isEditing) "Save" else "Edit Bike"
                 )
             }
+            Icon(
+                imageVector = Icons.Filled.DragHandle,
+                contentDescription = "Drag to reorder"
+            )
         }
     }
 }
