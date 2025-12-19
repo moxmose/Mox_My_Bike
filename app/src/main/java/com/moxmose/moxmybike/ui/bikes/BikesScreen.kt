@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DragHandle
@@ -98,8 +99,8 @@ fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
         if (showDialog) {
             AddBikeDialog(
                 onDismissRequest = { showDialog = false },
-                onConfirm = { description ->
-                    viewModel.addBike(description)
+                onConfirm = { description, photoUri ->
+                    viewModel.addBike(description, photoUri)
                     showDialog = false
                 }
             )
@@ -302,25 +303,80 @@ private class DragDropState(
 }
 
 @Composable
-fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String) -> Unit) {
+fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?) -> Unit) {
     var description by remember { mutableStateOf("") }
+    var photoUri by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, flags)
+                photoUri = it.toString()
+            } catch (e: SecurityException) {
+                Log.e("AddBikeDialog", "Failed to take persistable URI permission", e)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text("Add a new bike") },
-        text = {
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Bike description") },
-                singleLine = true
+        title = {
+            Text(
+                text = "Add a new bike",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Bike description") },
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.padding(4.dp))
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .clickable { imagePickerLauncher.launch(arrayOf("image/*")) }
+                ) {
+                    if (photoUri != null) {
+                        AsyncImage(
+                            model = photoUri,
+                            contentDescription = "Selected image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AddAPhoto,
+                            contentDescription = "Add Image",
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     if (description.isNotBlank()) {
-                        onConfirm(description)
+                        onConfirm(description, photoUri)
                     }
                 }
             ) {
@@ -382,7 +438,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
             try {
@@ -424,7 +480,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                     .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
                     .clickable {
                         if (isEditing) {
-                            imagePickerLauncher.launch("image/*")
+                            imagePickerLauncher.launch(arrayOf("image/*"))
                         } else {
                             if (bike.photoUri != null) {
                                 showFullImageDialog = bike.photoUri

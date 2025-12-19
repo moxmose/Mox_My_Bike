@@ -19,11 +19,12 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
             initialValue = emptyList()
         )
 
-    fun addBike(description: String) {
+    fun addBike(description: String, photoUri: String?) {
         viewModelScope.launch {
             val currentBikes = allBikes.first()
             val newBike = Bike(
                 description = description,
+                photoUri = photoUri,
                 displayOrder = currentBikes.size
             )
             bikeDao.insertBike(newBike)
