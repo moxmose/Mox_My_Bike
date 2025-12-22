@@ -12,5 +12,6 @@ data class Bike(
     val photoUri: String? = null,
     val displayOrder: Int = 0,
     @ColumnInfo(defaultValue = "false")
-    val dismissed: Boolean = false
+    val dismissed: Boolean = false,
+    val color: String? = null
 )
