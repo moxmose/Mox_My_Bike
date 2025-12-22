@@ -33,17 +33,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -70,6 +72,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
@@ -82,18 +85,32 @@ import org.koin.androidx.compose.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
-    val bikesFromDb by viewModel.allBikes.collectAsState()
+    val activeBikes by viewModel.activeBikes.collectAsState()
+    val allBikes by viewModel.allBikes.collectAsState()
     var showDialog by remember { mutableStateOf(false) }
+    var showDismissed by remember { mutableStateOf(false) }
 
     var bikes by remember { mutableStateOf<List<Bike>>(emptyList()) }
-    LaunchedEffect(bikesFromDb) {
-        bikes = bikesFromDb
+    LaunchedEffect(activeBikes, allBikes, showDismissed) {
+        bikes = if (showDismissed) allBikes else activeBikes
     }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { showDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Bike")
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(onClick = { showDialog = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Bike")
+                }
+                Spacer(modifier = Modifier.padding(8.dp))
+                FloatingActionButton(
+                    onClick = { showDismissed = !showDismissed },
+                    containerColor = MaterialTheme.colorScheme.secondary
+                ) {
+                    Icon(
+                        imageVector = if (showDismissed) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (showDismissed) "Hide Dismissed" else "Show Dismissed"
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -340,7 +357,7 @@ fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?) -> 
             ) {
                 OutlinedTextField(
                     value = description,
-                    onValueChange = { description = it },
+                    onValueChange = { if (it.length <= 50) description = it },
                     label = { Text("Bike description") },
                     singleLine = true
                 )
@@ -376,9 +393,7 @@ fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?) -> 
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (description.isNotBlank()) {
-                        onConfirm(description, photoUri)
-                    }
+                    onConfirm(description, photoUri)
                 }
             ) {
                 Text("Add")
@@ -420,6 +435,8 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
     val context = LocalContext.current
     var showFullImageDialog by remember { mutableStateOf<String?>(null) }
     var showNoPictureDialog by remember { mutableStateOf(false) }
+
+    val cardAlpha = if (bike.dismissed) 0.5f else 1f
 
     if (showNoPictureDialog) {
         AlertDialog(
@@ -469,6 +486,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize()
+            .graphicsLayer(alpha = cardAlpha),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -520,43 +538,67 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
             if (isEditing) {
                 OutlinedTextField(
                     value = editedDescription,
-                    onValueChange = { editedDescription = it },
+                    onValueChange = { if (it.length <= 50) editedDescription = it },
                     label = { Text("Bike Description") },
-                    modifier = Modifier.weight(1f)
+                    placeholder = {
+                        Text(
+                            text = "id:${bike.id} - no description",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
                 )
             } else {
                 Text(
-                    text = bike.description,
-                    modifier = Modifier.weight(1f)
+                    text = if (editedDescription.isNotBlank()) editedDescription else "id:${bike.id} - no description",
+                    color = if (editedDescription.isNotBlank()) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-            if (isEditing) {
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isEditing) {
+                    IconButton(
+                        onClick = { 
+                            if (bike.dismissed) {
+                                viewModel.restoreBike(bike)
+                            } else {
+                                viewModel.dismissBike(bike)
+                            }
+                         }
+                    ) {
+                        Icon(
+                            imageVector = if (bike.dismissed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (bike.dismissed) "Restore Bike" else "Dismiss Bike"
+                        )
+                    }
+                }
                 IconButton(
-                    onClick = { viewModel.dismissBike(bike) }
+                    onClick = {
+                        if (isEditing) {
+                            viewModel.updateBike(bike.copy(description = editedDescription))
+                        }
+                        isEditing = !isEditing
+                    }
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Bike"
+                        imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
+                        contentDescription = if (isEditing) "Save" else "Edit Bike"
+                    )
+                }
+                IconButton(onClick = {}) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = "Drag to reorder"
                     )
                 }
             }
-            IconButton(
-                onClick = {
-                    if (isEditing) {
-                        viewModel.updateBike(bike.copy(description = editedDescription))
-                    }
-                    isEditing = !isEditing
-                }
-            ) {
-                Icon(
-                    imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
-                    contentDescription = if (isEditing) "Save" else "Edit Bike"
-                )
-            }
-            Icon(
-                imageVector = Icons.Filled.DragHandle,
-                contentDescription = "Drag to reorder"
-            )
         }
     }
 }

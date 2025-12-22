@@ -12,6 +12,13 @@ import kotlinx.coroutines.launch
 
 class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
 
+    val activeBikes: StateFlow<List<Bike>> = bikeDao.getActiveBikes()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
     val allBikes: StateFlow<List<Bike>> = bikeDao.getAllBikes()
         .stateIn(
             scope = viewModelScope,
@@ -21,7 +28,7 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
 
     fun addBike(description: String, photoUri: String?) {
         viewModelScope.launch {
-            val currentBikes = allBikes.first()
+            val currentBikes = activeBikes.first()
             val newBike = Bike(
                 description = description,
                 photoUri = photoUri,
@@ -46,6 +53,12 @@ class BikesViewModel(private val bikeDao: BikeDao) : ViewModel() {
     fun dismissBike(bike: Bike) {
         viewModelScope.launch {
             updateBike(bike.copy(dismissed = true))
+        }
+    }
+
+    fun restoreBike(bike: Bike) {
+        viewModelScope.launch {
+            updateBike(bike.copy(dismissed = false))
         }
     }
 }
