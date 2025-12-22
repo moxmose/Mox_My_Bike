@@ -1,9 +1,12 @@
 package com.moxmose.moxmybike.data.local
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+
+
 
 @Entity(
     tableName = "maintenance_logs",
@@ -35,5 +38,9 @@ data class MaintenanceLog(
     val operationTypeId: Int,
     val notes: String?,
     val kilometers: Int,
-    val date: Long
+    val date: Long,
+    @ColumnInfo(defaultValue = "false")
+    val dismissed: Boolean = false,
+    val color: String? = null,
+    val timestamp: Long = System.currentTimeMillis()
 )
