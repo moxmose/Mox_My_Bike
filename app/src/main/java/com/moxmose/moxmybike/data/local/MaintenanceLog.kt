@@ -7,7 +7,6 @@ import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 
 
-
 @Entity(
     tableName = "maintenance_logs",
     foreignKeys = [
@@ -37,7 +36,7 @@ data class MaintenanceLog(
     @ColumnInfo(name = "operationTypeId")
     val operationTypeId: Int,
     val notes: String?,
-    val kilometers: Int,
+    val kilometers: Int?,
     val date: Long,
     @ColumnInfo(defaultValue = "false")
     val dismissed: Boolean = false,
