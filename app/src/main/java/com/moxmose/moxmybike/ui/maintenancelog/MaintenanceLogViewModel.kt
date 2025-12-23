@@ -46,7 +46,7 @@ class MaintenanceLogViewModel(
             initialValue = emptyList()
         )
 
-    fun addLog(bikeId: Int, operationTypeId: Int, notes: String?, kilometers: Int, date: Long, color: String?) {
+    fun addLog(bikeId: Int, operationTypeId: Int, notes: String?, kilometers: Int?, date: Long, color: String?) {
         viewModelScope.launch {
             val newLog = MaintenanceLog(
                 bikeId = bikeId,
