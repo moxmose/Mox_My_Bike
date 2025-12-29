@@ -3,6 +3,7 @@ package com.moxmose.moxmybike.ui.maintenancelog
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,8 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
@@ -44,36 +49,29 @@ import org.koin.androidx.compose.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
+enum class SortProperty {
+    DATE, BIKE, OPERATION, KILOMETERS, NOTES
+}
+
+enum class SortDirection {
+    ASCENDING, DESCENDING
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
-    val activeLogs by viewModel.activeLogsWithDetails.collectAsState()
-    val allLogs by viewModel.allLogsWithDetails.collectAsState()
+    val logs by viewModel.logs.collectAsState()
     val bikes by viewModel.allBikes.collectAsState()
     val operationTypes by viewModel.allOperationTypes.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val sortProperty by viewModel.sortProperty.collectAsState()
+    val sortDirection by viewModel.sortDirection.collectAsState()
+    val showDismissed by viewModel.showDismissed.collectAsState()
 
-    // FILTRA E ORDINA LE LISTE QUI
     val activeBikes = remember(bikes) { bikes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
     val activeOperationTypes = remember(operationTypes) { operationTypes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
 
-    var showDismissed by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
-
-    val logs by remember(activeLogs, allLogs, showDismissed, searchQuery) {
-        derivedStateOf {
-            val sourceList = if (showDismissed) allLogs else activeLogs
-            if (searchQuery.isBlank()) {
-                sourceList
-            } else {
-                sourceList.filter {
-                    it.bikeDescription.contains(searchQuery, ignoreCase = true) ||
-                            it.operationTypeDescription.contains(searchQuery, ignoreCase = true) ||
-                            (it.log.notes?.contains(searchQuery, ignoreCase = true) ?: false)
-                }
-            }
-        }
-    }
 
     if (showAddDialog) {
         MaintenanceLogDialog(
@@ -95,7 +93,7 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
                 }
                 Spacer(modifier = Modifier.padding(8.dp))
                 FloatingActionButton(
-                    onClick = { showDismissed = !showDismissed },
+                    onClick = { viewModel.onShowDismissedToggled() },
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(
@@ -107,15 +105,54 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
         }
     ) { paddingValues ->
         Column(Modifier.padding(paddingValues)) {
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
-            )
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    label = { Text("Search") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    modifier = Modifier.weight(1f)
+                )
+
+                var showSortMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { showSortMenu = true }) {
+                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort by")
+                    }
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        SortProperty.values().forEach { prop ->
+                            DropdownMenuItem(
+                                text = { Text(prop.name.lowercase().replaceFirstChar { it.titlecase() }) },
+                                onClick = {
+                                    viewModel.onSortPropertyChanged(prop)
+                                    showSortMenu = false
+                                },
+                                leadingIcon = {
+                                    if (sortProperty == prop) {
+                                        Icon(Icons.Default.Check, contentDescription = "Selected")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                IconButton(onClick = { viewModel.onSortDirectionChanged() }) {
+                    Icon(
+                        imageVector = if (sortDirection == SortDirection.DESCENDING) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                        contentDescription = "Sort direction"
+                    )
+                }
+            }
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(8.dp)) {
                 items(logs, key = { it.log.id }) { logDetail ->
                     MaintenanceLogCard(
@@ -146,7 +183,7 @@ fun MaintenanceLogDialog(
     var selectedOperationType by remember { mutableStateOf<OperationType?>(null) }
     var isBikeDropdownExpanded by remember { mutableStateOf(false) }
     var isOperationDropdownExpanded by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
+    var selectedDate by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
@@ -342,7 +379,7 @@ fun MaintenanceLogCard(
     var isEditing by remember { mutableStateOf(false) }
     var editedNotes by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.notes ?: "") }
     var editedKilometers by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.kilometers?.toString() ?: "") }
-    var editedDate by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.date) }
+    var editedDate by remember(logDetail, isEditing) { mutableLongStateOf(logDetail.log.date) }
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedBike by remember(logDetail, isEditing) { mutableStateOf(bikes.find { it.id == logDetail.log.bikeId }) }
     var selectedOperationType by remember(logDetail, isEditing) { mutableStateOf(operationTypes.find { it.id == logDetail.log.operationTypeId }) }

@@ -7,11 +7,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.moxmose.moxmybike.ui.bikes.BikesScreen
 import com.moxmose.moxmybike.ui.maintenancelog.MaintenanceLogScreen
 import com.moxmose.moxmybike.ui.operations.OperationTypeScreen
+import com.moxmose.moxmybike.ui.options.OptionsScreen
 import com.moxmose.moxmybike.ui.theme.MoxMyBikeTheme
 
 class MainActivity : ComponentActivity() {
@@ -59,18 +60,19 @@ fun MoxMyBikeApp() {
                     },
                     label = { Text(it.label) },
                     selected = it == currentDestination,
-                    onClick = { currentDestination = it }
+                    onClick = { if (it.enabled) currentDestination = it },
+                    enabled = it.enabled
                 )
             }
         }
-    ) {
+    ) { 
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 AppDestinations.LOGS -> MaintenanceLogScreen()
                 AppDestinations.BIKES -> BikesScreen()
                 AppDestinations.OPERATIONS -> OperationTypeScreen()
-                AppDestinations.FAVORITES -> Greeting(name = "Favorites", modifier = Modifier.padding(innerPadding))
-                AppDestinations.PROFILE -> Greeting(name = "Profile", modifier = Modifier.padding(innerPadding))
+                AppDestinations.REPORTS -> Greeting(name = "Reports", modifier = Modifier.padding(innerPadding))
+                AppDestinations.OPTIONS -> OptionsScreen(modifier = Modifier.padding(innerPadding))
             }
         }
     }
@@ -79,12 +81,13 @@ fun MoxMyBikeApp() {
 enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
+    val enabled: Boolean = true
 ) {
     LOGS("Logs", Icons.Default.Home),
     BIKES("Bikes", Icons.Default.List),
     OPERATIONS("Operations", Icons.Default.Build),
-    FAVORITES("Favorites", Icons.Default.Favorite),
-    PROFILE("Profile", Icons.Default.AccountBox),
+    REPORTS("Reports", Icons.Default.Assessment, false),
+    OPTIONS("Options", Icons.Default.Settings),
 }
 
 @Composable

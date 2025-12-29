@@ -3,8 +3,9 @@ package com.moxmose.moxmybike.data.local
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Update
+import androidx.sqlite.db.SupportSQLiteQuery
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -15,38 +16,6 @@ interface MaintenanceLogDao {
     @Update
     suspend fun updateLog(log: MaintenanceLog)
 
-    @Query("""
-        SELECT
-            l.*,
-            b.description as bikeDescription,
-            ot.description as operationTypeDescription,
-            b.photoUri as bikePhotoUri,
-            ot.photoUri as operationTypePhotoUri,
-            ot.iconIdentifier as operationTypeIconIdentifier,
-            b.dismissed as bikeDismissed,
-            ot.dismissed as operationTypeDismissed
-        FROM maintenance_logs as l
-        JOIN bikes as b ON l.bikeId = b.id
-        JOIN operation_types as ot ON l.operationTypeId = ot.id
-        WHERE l.dismissed = 0
-        ORDER BY l.date DESC
-    """)
-    fun getActiveLogsWithDetails(): Flow<List<MaintenanceLogDetails>>
-
-    @Query("""
-        SELECT
-            l.*,
-            b.description as bikeDescription,
-            ot.description as operationTypeDescription,
-            b.photoUri as bikePhotoUri,
-            ot.photoUri as operationTypePhotoUri,
-            ot.iconIdentifier as operationTypeIconIdentifier,
-            b.dismissed as bikeDismissed,
-            ot.dismissed as operationTypeDismissed
-        FROM maintenance_logs as l
-        JOIN bikes as b ON l.bikeId = b.id
-        JOIN operation_types as ot ON l.operationTypeId = ot.id
-        ORDER BY l.date DESC
-    """)
-    fun getAllLogsWithDetails(): Flow<List<MaintenanceLogDetails>>
+    @RawQuery(observedEntities = [MaintenanceLog::class, Bike::class, OperationType::class])
+    fun getLogsWithDetails(query: SupportSQLiteQuery): Flow<List<MaintenanceLogDetails>>
 }
