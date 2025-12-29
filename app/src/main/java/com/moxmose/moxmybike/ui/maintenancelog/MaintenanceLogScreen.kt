@@ -17,10 +17,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
@@ -32,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -195,10 +194,10 @@ fun MaintenanceLogDialog(
                                     contentDescription = null,
                                     modifier = Modifier.size(24.dp).clip(CircleShape)
                                 )
-                            } ?: Icon(Icons.Default.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
+                            } ?: Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isBikeDropdownExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = isBikeDropdownExpanded,
@@ -214,7 +213,7 @@ fun MaintenanceLogDialog(
                                             contentDescription = null,
                                             modifier = Modifier.size(24.dp).clip(CircleShape)
                                         )
-                                    } ?: Icon(Icons.Default.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    } ?: Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
                                 },
                                 onClick = {
                                     selectedBike = bike
@@ -243,7 +242,7 @@ fun MaintenanceLogDialog(
                             } ?: Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isOperationDropdownExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = isOperationDropdownExpanded,
@@ -405,10 +404,10 @@ fun MaintenanceLogCard(
                                         contentDescription = null,
                                         modifier = Modifier.size(24.dp).clip(CircleShape)
                                     )
-                                } ?: Icon(Icons.Default.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
+                                } ?: Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
                             },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isBikeDropdownExpanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = isBikeDropdownExpanded,
@@ -424,7 +423,7 @@ fun MaintenanceLogCard(
                                                 contentDescription = null,
                                                 modifier = Modifier.size(24.dp).clip(CircleShape)
                                             )
-                                        } ?: Icon(Icons.Default.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
+                                        } ?: Icon(Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = null, modifier = Modifier.size(24.dp))
                                     },
                                     onClick = {
                                         selectedBike = bike
@@ -453,7 +452,7 @@ fun MaintenanceLogCard(
                                 } ?: Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
                             },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isOperationDropdownExpanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = isOperationDropdownExpanded,
@@ -503,7 +502,7 @@ fun MaintenanceLogCard(
                         val bikeTextAlpha = if (logDetail.bikeDismissed) 0.5f else 1f
                         logDetail.bikePhotoUri?.let {
                             AsyncImage(model = it, contentDescription = "Bike photo", modifier = Modifier.size(24.dp).clip(CircleShape).graphicsLayer(alpha = bikeTextAlpha))
-                        } ?: Icon(imageVector = Icons.Default.DirectionsBike, contentDescription = "Bike Icon", modifier = Modifier.size(24.dp).graphicsLayer(alpha = bikeTextAlpha))
+                        } ?: Icon(imageVector = Icons.AutoMirrored.Filled.DirectionsBike, contentDescription = "Bike Icon", modifier = Modifier.size(24.dp).graphicsLayer(alpha = bikeTextAlpha))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = (logDetail.bikeDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.bikeId} - no description") + if (logDetail.bikeDismissed) " (dismissed)" else "",

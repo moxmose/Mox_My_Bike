@@ -57,6 +57,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -226,7 +227,7 @@ private class DragDropState(
     private val onDrop: () -> Unit,
     private val spacing: Float
 ) {
-    var draggedDistance by mutableStateOf(0f)
+    var draggedDistance by mutableFloatStateOf(0f)
         private set
     var draggedItemKey by mutableStateOf<Any?>(null)
         private set

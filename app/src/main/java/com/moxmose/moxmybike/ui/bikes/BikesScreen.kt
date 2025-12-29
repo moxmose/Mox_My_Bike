@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.DirectionsBike
@@ -57,6 +58,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -226,7 +228,7 @@ private class DragDropState(
     private val onDrop: () -> Unit,
     private val spacing: Float
 ) {
-    var draggedDistance by mutableStateOf(0f)
+    var draggedDistance by mutableFloatStateOf(0f)
         private set
     var draggedItemKey by mutableStateOf<Any?>(null)
         private set
@@ -480,7 +482,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
         .crossfade(true)
         .build()
 
-    val placeholderPainter = rememberVectorPainter(image = Icons.Filled.DirectionsBike)
+    val placeholderPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.DirectionsBike)
 
     Card(
         modifier = modifier
@@ -526,7 +528,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.DirectionsBike,
+                            imageVector = Icons.AutoMirrored.Filled.DirectionsBike,
                             contentDescription = "Bike Photo",
                             modifier = Modifier.size(36.dp), // 10% smaller
                             tint = MaterialTheme.colorScheme.onSecondaryContainer
