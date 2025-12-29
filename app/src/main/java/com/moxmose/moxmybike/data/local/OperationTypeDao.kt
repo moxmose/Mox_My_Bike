@@ -15,9 +15,12 @@ interface OperationTypeDao {
     @Update
     suspend fun updateOperationType(operationType: OperationType)
 
-    @Query("SELECT * FROM operation_types WHERE dismissed = 0 ORDER BY description ASC")
+    @Update
+    suspend fun updateOperationTypes(operationTypes: List<OperationType>)
+
+    @Query("SELECT * FROM operation_types WHERE dismissed = 0 ORDER BY displayOrder ASC")
     fun getActiveOperationTypes(): Flow<List<OperationType>>
 
-    @Query("SELECT * FROM operation_types ORDER BY description ASC")
+    @Query("SELECT * FROM operation_types ORDER BY displayOrder ASC")
     fun getAllOperationTypes(): Flow<List<OperationType>>
 }

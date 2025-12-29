@@ -22,7 +22,9 @@ interface MaintenanceLogDao {
             ot.description as operationTypeDescription,
             b.photoUri as bikePhotoUri,
             ot.photoUri as operationTypePhotoUri,
-            ot.iconIdentifier as operationTypeIconIdentifier
+            ot.iconIdentifier as operationTypeIconIdentifier,
+            b.dismissed as bikeDismissed,
+            ot.dismissed as operationTypeDismissed
         FROM maintenance_logs as l
         JOIN bikes as b ON l.bikeId = b.id
         JOIN operation_types as ot ON l.operationTypeId = ot.id
@@ -38,7 +40,9 @@ interface MaintenanceLogDao {
             ot.description as operationTypeDescription,
             b.photoUri as bikePhotoUri,
             ot.photoUri as operationTypePhotoUri,
-            ot.iconIdentifier as operationTypeIconIdentifier
+            ot.iconIdentifier as operationTypeIconIdentifier,
+            b.dismissed as bikeDismissed,
+            ot.dismissed as operationTypeDismissed
         FROM maintenance_logs as l
         JOIN bikes as b ON l.bikeId = b.id
         JOIN operation_types as ot ON l.operationTypeId = ot.id

@@ -53,9 +53,9 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
     val bikes by viewModel.allBikes.collectAsState()
     val operationTypes by viewModel.allOperationTypes.collectAsState()
 
-    // FILTRA LE LISTE QUI
-    val activeBikes = remember(bikes) { bikes.filter { !it.dismissed } }
-    val activeOperationTypes = remember(operationTypes) { operationTypes.filter { !it.dismissed } }
+    // FILTRA E ORDINA LE LISTE QUI
+    val activeBikes = remember(bikes) { bikes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
+    val activeOperationTypes = remember(operationTypes) { operationTypes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
 
     var showDismissed by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
@@ -500,29 +500,33 @@ fun MaintenanceLogCard(
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val bikeTextAlpha = if (logDetail.bikeDismissed) 0.5f else 1f
                         logDetail.bikePhotoUri?.let {
-                            AsyncImage(model = it, contentDescription = "Bike photo", modifier = Modifier.size(24.dp).clip(CircleShape))
-                        } ?: Icon(imageVector = Icons.Default.DirectionsBike, contentDescription = "Bike Icon", modifier = Modifier.size(24.dp))
+                            AsyncImage(model = it, contentDescription = "Bike photo", modifier = Modifier.size(24.dp).clip(CircleShape).graphicsLayer(alpha = bikeTextAlpha))
+                        } ?: Icon(imageVector = Icons.Default.DirectionsBike, contentDescription = "Bike Icon", modifier = Modifier.size(24.dp).graphicsLayer(alpha = bikeTextAlpha))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = logDetail.bikeDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.bikeId} - no description",
+                            text = (logDetail.bikeDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.bikeId} - no description") + if (logDetail.bikeDismissed) " (dismissed)" else "",
                             style = MaterialTheme.typography.titleSmall,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.graphicsLayer(alpha = bikeTextAlpha)
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val operationTypeAlpha = if (logDetail.operationTypeDismissed) 0.5f else 1f
                         if (logDetail.operationTypePhotoUri != null) {
-                            AsyncImage(model = logDetail.operationTypePhotoUri, contentDescription = "Operation photo", modifier = Modifier.size(24.dp).clip(CircleShape))
+                            AsyncImage(model = logDetail.operationTypePhotoUri, contentDescription = "Operation photo", modifier = Modifier.size(24.dp).clip(CircleShape).graphicsLayer(alpha = operationTypeAlpha))
                         } else {
-                            Icon(imageVector = Icons.Default.Build, contentDescription = "Operation icon", modifier = Modifier.size(24.dp))
+                            Icon(imageVector = Icons.Default.Build, contentDescription = "Operation icon", modifier = Modifier.size(24.dp).graphicsLayer(alpha = operationTypeAlpha))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = logDetail.operationTypeDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.operationTypeId} - no description",
+                            text = (logDetail.operationTypeDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.operationTypeId} - no description") + if (logDetail.operationTypeDismissed) " (dismissed)" else "",
                             style = MaterialTheme.typography.bodyLarge,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.graphicsLayer(alpha = operationTypeAlpha)
                         )
                     }
 

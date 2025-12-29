@@ -141,7 +141,12 @@ fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
                         add(to, removeAt(from))
                     }
                 },
-                onDrop = {},
+                onDrop = {
+                    val reorderedBikes = operationTypes.mapIndexed { index, operationType ->
+                        operationType.copy(displayOrder = index)
+                    }
+                    viewModel.updateOperationTypes(reorderedBikes)
+                },
                 modifier = Modifier.fillMaxSize(),
                 itemContent = { _, operationType ->
                     OperationTypeCard(

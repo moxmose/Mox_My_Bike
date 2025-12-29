@@ -28,12 +28,14 @@ class OperationTypeViewModel(private val operationTypeDao: OperationTypeDao) : V
 
     fun addOperationType(description: String, iconIdentifier: String?, color: String?, photoUri: String?) {
         viewModelScope.launch {
+            val maxDisplayOrder = allOperationTypes.first().maxOfOrNull { it.displayOrder } ?: -1
             operationTypeDao.insertOperationType(
                 OperationType(
                     description = description,
                     iconIdentifier = iconIdentifier,
                     color = color,
-                    photoUri = photoUri
+                    photoUri = photoUri,
+                    displayOrder = maxDisplayOrder + 1
                 )
             )
         }
@@ -42,6 +44,12 @@ class OperationTypeViewModel(private val operationTypeDao: OperationTypeDao) : V
     fun updateOperationType(operationType: OperationType) {
         viewModelScope.launch {
             operationTypeDao.updateOperationType(operationType)
+        }
+    }
+
+    fun updateOperationTypes(operationTypes: List<OperationType>) {
+        viewModelScope.launch {
+            operationTypeDao.updateOperationTypes(operationTypes)
         }
     }
 

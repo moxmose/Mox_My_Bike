@@ -13,5 +13,6 @@ data class OperationType(
     val dismissed: Boolean = false,
     val color: String? = null,
     val iconIdentifier: String? = null,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val displayOrder: Int = 0
 )

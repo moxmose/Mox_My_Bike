@@ -8,5 +8,7 @@ data class MaintenanceLogDetails(
     val operationTypeDescription: String,
     val bikePhotoUri: String?,
     val operationTypePhotoUri: String?,
-    val operationTypeIconIdentifier: String?
+    val operationTypeIconIdentifier: String?,
+    val bikeDismissed: Boolean,
+    val operationTypeDismissed: Boolean
 )
