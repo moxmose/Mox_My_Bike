@@ -35,8 +35,8 @@ data class MaintenanceLog(
     val bikeId: Int,
     @ColumnInfo(name = "operationTypeId")
     val operationTypeId: Int,
-    val notes: String?,
-    val kilometers: Int?,
+    val notes: String? = null,
+    val kilometers: Int? = null,
     val date: Long,
     @ColumnInfo(defaultValue = "false")
     val dismissed: Boolean = false,
