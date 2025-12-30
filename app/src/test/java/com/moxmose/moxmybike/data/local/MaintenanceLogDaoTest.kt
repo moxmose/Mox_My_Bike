@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
+import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -43,41 +44,20 @@ class MaintenanceLogDaoTest {
 
     @Test
     fun insertLog_whenDependenciesExist_retrievesLogWithDetails() = runTest {
-        // 1. Setup dependencies
         val bike = Bike(id = 1, description = "Mountain Bike")
         val operationType = OperationType(id = 1, description = "Clean Chain")
         bikeDao.insertBike(bike)
         operationTypeDao.insertOperationType(operationType)
 
-        // 2. Insert the log
         val log = MaintenanceLog(id = 1, bikeId = 1, operationTypeId = 1, date = System.currentTimeMillis())
         maintenanceLogDao.insertLog(log)
 
-        // 3. Build a simple query to get all logs
-        val query = SimpleSQLiteQuery(
-            """
-            SELECT 
-                l.*,
-                b.description as bikeDescription,
-                ot.description as operationTypeDescription,
-                b.photoUri as bikePhotoUri,
-                ot.photoUri as operationTypePhotoUri,
-                ot.iconIdentifier as operationTypeIconIdentifier,
-                b.dismissed as bikeDismissed,
-                ot.dismissed as operationTypeDismissed
-            FROM maintenance_logs as l
-            JOIN bikes as b ON l.bikeId = b.id
-            JOIN operation_types as ot ON l.operationTypeId = ot.id
-            WHERE l.dismissed = 0
-            """
-        )
+        val query = SimpleSQLiteQuery("SELECT l.*, b.description as bikeDescription, ot.description as operationTypeDescription, b.photoUri as bikePhotoUri, ot.photoUri as operationTypePhotoUri, ot.iconIdentifier as operationTypeIconIdentifier, b.dismissed as bikeDismissed, ot.dismissed as operationTypeDismissed FROM maintenance_logs as l JOIN bikes as b ON l.bikeId = b.id JOIN operation_types as ot ON l.operationTypeId = ot.id WHERE l.dismissed = 0")
 
-        // 4. Test the flow
         maintenanceLogDao.getLogsWithDetails(query).test {
             val logDetailsList = awaitItem()
             assertEquals(1, logDetailsList.size)
             val logDetails = logDetailsList[0]
-
             assertEquals(1, logDetails.log.id)
             assertEquals("Mountain Bike", logDetails.bikeDescription)
             assertEquals("Clean Chain", logDetails.operationTypeDescription)
@@ -87,7 +67,6 @@ class MaintenanceLogDaoTest {
 
     @Test
     fun getLogsWithDetails_withSearchQuery_returnsMatchingLogs() = runTest {
-        // 1. Setup dependencies and logs
         val bike1 = Bike(id = 1, description = "Road Bike")
         val bike2 = Bike(id = 2, description = "Mountain Bike")
         val op1 = OperationType(id = 1, description = "Fix Brakes")
@@ -99,32 +78,80 @@ class MaintenanceLogDaoTest {
         maintenanceLogDao.insertLog(MaintenanceLog(bikeId = 1, operationTypeId = 1, date = System.currentTimeMillis()))
         maintenanceLogDao.insertLog(MaintenanceLog(bikeId = 2, operationTypeId = 2, notes = "Used a specific chain cleaner", date = System.currentTimeMillis()))
 
-        // 2. Build query with a search term
         val searchTerm = "%Chain%"
-        val query = SimpleSQLiteQuery(
-            """
-            SELECT 
-                l.*,
-                b.description as bikeDescription,
-                ot.description as operationTypeDescription,
-                b.photoUri as bikePhotoUri,
-                ot.photoUri as operationTypePhotoUri,
-                ot.iconIdentifier as operationTypeIconIdentifier,
-                b.dismissed as bikeDismissed,
-                ot.dismissed as operationTypeDismissed
-            FROM maintenance_logs as l
-            JOIN bikes as b ON l.bikeId = b.id
-            JOIN operation_types as ot ON l.operationTypeId = ot.id
-            WHERE l.dismissed = 0 AND (ot.description LIKE ? OR l.notes LIKE ?)
-            """,
-            arrayOf(searchTerm, searchTerm)
-        )
+        val query = SimpleSQLiteQuery("SELECT l.*, b.description as bikeDescription, ot.description as operationTypeDescription, b.photoUri as bikePhotoUri, ot.photoUri as operationTypePhotoUri, ot.iconIdentifier as operationTypeIconIdentifier, b.dismissed as bikeDismissed, ot.dismissed as operationTypeDismissed FROM maintenance_logs as l JOIN bikes as b ON l.bikeId = b.id JOIN operation_types as ot ON l.operationTypeId = ot.id WHERE l.dismissed = 0 AND (ot.description LIKE ? OR l.notes LIKE ?)", arrayOf(searchTerm, searchTerm))
 
-        // 3. Test the flow
         maintenanceLogDao.getLogsWithDetails(query).test {
             val logDetailsList = awaitItem()
             assertEquals(1, logDetailsList.size)
             assertEquals("Clean Chain", logDetailsList[0].operationTypeDescription)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun getLogsWithDetails_withDateSort_returnsSortedLogs() = runTest {
+        val bike = Bike(id = 1, description = "Test Bike")
+        val op = OperationType(id = 1, description = "Test Op")
+        bikeDao.insertBike(bike)
+        operationTypeDao.insertOperationType(op)
+
+        val olderLog = MaintenanceLog(id = 1, bikeId = 1, operationTypeId = 1, date = 1000L)
+        val newerLog = MaintenanceLog(id = 2, bikeId = 1, operationTypeId = 1, date = 2000L)
+
+        maintenanceLogDao.insertLog(olderLog)
+        maintenanceLogDao.insertLog(newerLog)
+
+        val query = SimpleSQLiteQuery("SELECT l.*, b.description as bikeDescription, ot.description as operationTypeDescription, b.photoUri as bikePhotoUri, ot.photoUri as operationTypePhotoUri, ot.iconIdentifier as operationTypeIconIdentifier, b.dismissed as bikeDismissed, ot.dismissed as operationTypeDismissed FROM maintenance_logs as l JOIN bikes as b ON l.bikeId = b.id JOIN operation_types as ot ON l.operationTypeId = ot.id WHERE l.dismissed = 0 ORDER BY l.date DESC")
+
+        maintenanceLogDao.getLogsWithDetails(query).test {
+            val logDetailsList = awaitItem()
+            assertEquals(2, logDetailsList.size)
+            assertEquals(newerLog.id, logDetailsList[0].log.id)
+            assertEquals(olderLog.id, logDetailsList[1].log.id)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun dismissLog_whenLogIsDismissed_isRemovedFromActiveLogsQuery() = runTest {
+        val bike = Bike(id = 1, description = "Test Bike")
+        val op = OperationType(id = 1, description = "Test Op")
+        bikeDao.insertBike(bike)
+        operationTypeDao.insertOperationType(op)
+        val log = MaintenanceLog(id = 1, bikeId = 1, operationTypeId = 1, date = 1000L)
+        maintenanceLogDao.insertLog(log)
+
+        val activeQuery = SimpleSQLiteQuery("SELECT l.*, b.description as bikeDescription, ot.description as operationTypeDescription, b.photoUri as bikePhotoUri, ot.photoUri as operationTypePhotoUri, ot.iconIdentifier as operationTypeIconIdentifier, b.dismissed as bikeDismissed, ot.dismissed as operationTypeDismissed FROM maintenance_logs as l JOIN bikes as b ON l.bikeId = b.id JOIN operation_types as ot ON l.operationTypeId = ot.id WHERE l.dismissed = 0")
+        maintenanceLogDao.getLogsWithDetails(activeQuery).test {
+            assertEquals(1, awaitItem().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        maintenanceLogDao.updateLog(log.copy(dismissed = true))
+
+        maintenanceLogDao.getLogsWithDetails(activeQuery).test {
+            assertEquals(0, awaitItem().size)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun getLogs_whenDependencyIsDismissed_returnsLogWithDismissedFlag() = runTest {
+        val bike = Bike(id = 1, description = "Mountain Bike", dismissed = false)
+        val op = OperationType(id = 1, description = "Clean Chain")
+        bikeDao.insertBike(bike)
+        operationTypeDao.insertOperationType(op)
+        val log = MaintenanceLog(id = 1, bikeId = 1, operationTypeId = 1, date = System.currentTimeMillis())
+        maintenanceLogDao.insertLog(log)
+
+        bikeDao.updateBike(bike.copy(dismissed = true))
+        
+        val query = SimpleSQLiteQuery("SELECT l.*, b.description as bikeDescription, ot.description as operationTypeDescription, b.photoUri as bikePhotoUri, ot.photoUri as operationTypePhotoUri, ot.iconIdentifier as operationTypeIconIdentifier, b.dismissed as bikeDismissed, ot.dismissed as operationTypeDismissed FROM maintenance_logs as l JOIN bikes as b ON l.bikeId = b.id JOIN operation_types as ot ON l.operationTypeId = ot.id")
+        
+        maintenanceLogDao.getLogsWithDetails(query).test {
+            val item = awaitItem().first()
+            assertTrue(item.bikeDismissed)
             cancelAndIgnoreRemainingEvents()
         }
     }
