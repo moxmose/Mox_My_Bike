@@ -12,57 +12,15 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyItemScope
-import androidx.compose.foundation.lazy.LazyListItemInfo
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsBike
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.DragHandle
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,28 +42,60 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
     val activeBikes by viewModel.activeBikes.collectAsState()
     val allBikes by viewModel.allBikes.collectAsState()
-    var showDialog by remember { mutableStateOf(false) }
-    var showDismissed by remember { mutableStateOf(false) }
+    var showDismissed by rememberSaveable { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    
+    val bikesToShow = if (showDismissed) allBikes else activeBikes
 
-    var bikes by remember { mutableStateOf<List<Bike>>(emptyList()) }
-    LaunchedEffect(activeBikes, allBikes, showDismissed) {
-        bikes = if (showDismissed) allBikes else activeBikes
+    BikesScreenContent(
+        bikes = bikesToShow,
+        onAddBike = viewModel::addBike,
+        onUpdateBikes = viewModel::updateBikes,
+        onUpdateBike = viewModel::updateBike,
+        onDismissBike = viewModel::dismissBike,
+        onRestoreBike = viewModel::restoreBike,
+        showDismissed = showDismissed,
+        onToggleShowDismissed = { showDismissed = !showDismissed },
+        showAddDialog = showAddDialog,
+        onShowAddDialogChange = { showAddDialog = it }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun BikesScreenContent(
+    bikes: List<Bike>,
+    showDismissed: Boolean,
+    onToggleShowDismissed: () -> Unit,
+    showAddDialog: Boolean,
+    onShowAddDialogChange: (Boolean) -> Unit,
+    onAddBike: (String, String?) -> Unit,
+    onUpdateBikes: (List<Bike>) -> Unit,
+    onUpdateBike: (Bike) -> Unit,
+    onDismissBike: (Bike) -> Unit,
+    onRestoreBike: (Bike) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var bikesState by remember(bikes) { mutableStateOf(bikes) }
+
+    LaunchedEffect(bikes) {
+        bikesState = bikes
     }
 
     Scaffold(
+        modifier = modifier,
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(onClick = { showDialog = true }) {
+                FloatingActionButton(onClick = { onShowAddDialogChange(true) }) {
                     Icon(Icons.Filled.Add, contentDescription = "Add Bike")
                 }
                 Spacer(modifier = Modifier.padding(8.dp))
                 FloatingActionButton(
-                    onClick = { showDismissed = !showDismissed },
+                    onClick = onToggleShowDismissed,
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(
@@ -116,12 +106,12 @@ fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
             }
         }
     ) { paddingValues ->
-        if (showDialog) {
+        if (showAddDialog) {
             AddBikeDialog(
-                onDismissRequest = { showDialog = false },
-                onConfirm = { description, photoUri ->
-                    viewModel.addBike(description, photoUri)
-                    showDialog = false
+                onDismissRequest = { onShowAddDialogChange(false) },
+                onConfirm = {
+                    onAddBike(it.first, it.second)
+                    onShowAddDialogChange(false)
                 }
             )
         }
@@ -136,24 +126,26 @@ fun BikesScreen(viewModel: BikesViewModel = koinViewModel()) {
                 style = MaterialTheme.typography.bodySmall
             )
             DraggableLazyColumn(
-                items = bikes,
+                items = bikesState,
                 key = { _, bike -> bike.id },
                 onMove = { from, to ->
-                    bikes = bikes.toMutableList().apply {
+                    bikesState = bikesState.toMutableList().apply {
                         add(to, removeAt(from))
                     }
                 },
                 onDrop = {
-                    val reorderedBikes = bikes.mapIndexed { index, bike ->
+                    val reorderedBikes = bikesState.mapIndexed { index, bike ->
                         bike.copy(displayOrder = index)
                     }
-                    viewModel.updateBikes(reorderedBikes)
+                    onUpdateBikes(reorderedBikes)
                 },
                 modifier = Modifier.fillMaxSize(),
                 itemContent = { _, bike ->
                     BikeCard(
                         bike = bike,
-                        viewModel = viewModel
+                        onUpdateBike = onUpdateBike,
+                        onDismissBike = onDismissBike,
+                        onRestoreBike = onRestoreBike
                     )
                 }
             )
@@ -323,7 +315,7 @@ private class DragDropState(
 }
 
 @Composable
-fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?) -> Unit) {
+fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (Pair<String, String?>) -> Unit) {
     var description by remember { mutableStateOf("") }
     var photoUri by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -395,7 +387,7 @@ fun AddBikeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?) -> 
         confirmButton = {
             TextButton(
                 onClick = {
-                    onConfirm(description, photoUri)
+                    onConfirm(Pair(description, photoUri))
                 }
             ) {
                 Text("Add")
@@ -431,9 +423,15 @@ fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifier) {
+fun BikeCard(
+    bike: Bike,
+    onUpdateBike: (Bike) -> Unit,
+    onDismissBike: (Bike) -> Unit,
+    onRestoreBike: (Bike) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var isEditing by remember { mutableStateOf(false) }
-    var editedDescription by remember { mutableStateOf(bike.description) }
+    var editedDescription by remember(bike.description) { mutableStateOf(bike.description) }
     val context = LocalContext.current
     var showFullImageDialog by remember { mutableStateOf<String?>(null) }
     var showNoPictureDialog by remember { mutableStateOf(false) }
@@ -467,13 +465,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
             } catch (e: SecurityException) {
                 Log.e("BikeCard", "Failed to take persistable URI permission", e)
             }
-            viewModel.updateBike(bike.copy(photoUri = it.toString()))
-        }
-    }
-
-    LaunchedEffect(bike.description) {
-        if (!isEditing) {
-            editedDescription = bike.description
+            onUpdateBike(bike.copy(photoUri = it.toString()))
         }
     }
 
@@ -569,9 +561,9 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                     IconButton(
                         onClick = { 
                             if (bike.dismissed) {
-                                viewModel.restoreBike(bike)
+                                onRestoreBike(bike)
                             } else {
-                                viewModel.dismissBike(bike)
+                                onDismissBike(bike)
                             }
                          }
                     ) {
@@ -584,7 +576,7 @@ fun BikeCard(bike: Bike, viewModel: BikesViewModel, modifier: Modifier = Modifie
                 IconButton(
                     onClick = {
                         if (isEditing) {
-                            viewModel.updateBike(bike.copy(description = editedDescription))
+                            onUpdateBike(bike.copy(description = editedDescription))
                         }
                         isEditing = !isEditing
                     }

@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,15 +29,32 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = koinViewModel()) {
     val username by viewModel.username.collectAsState()
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
 
+    OptionsScreenContent(
+        modifier = modifier,
+        username = username,
+        onUsernameChange = { viewModel.setUsername(it) },
+        showAboutDialog = showAboutDialog,
+        onShowAboutDialogChange = { showAboutDialog = it }
+    )
+}
+
+@Composable
+fun OptionsScreenContent(
+    modifier: Modifier = Modifier,
+    username: String,
+    onUsernameChange: (String) -> Unit,
+    showAboutDialog: Boolean,
+    onShowAboutDialogChange: (Boolean) -> Unit
+) {
     if (showAboutDialog) {
         AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
+            onDismissRequest = { onShowAboutDialogChange(false) },
             title = { Text("About Mox My Bike") },
-            text = { Text("This app helps you track maintenance logs for your bicycles. Keep your bikes in perfect shape!\nWritten in Kotlin + Compose by Mox, relaeased under GPL Licence (https://www.gnu.org/licenses/gpl-3.0.html) and hosted on GITHUB (https://github.com/MoxMose/Mox_My_Bike)") },
+            text = { Text("This app helps you track maintenance logs for your bicycles. Keep your bikes in perfect shape!") },
             confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) {
+                TextButton(onClick = { onShowAboutDialogChange(false) }) {
                     Text("OK")
                 }
             }
@@ -61,13 +78,13 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
 
         OutlinedTextField(
             value = username,
-            onValueChange = { viewModel.setUsername(it) },
+            onValueChange = onUsernameChange,
             label = { Text("Username") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = { showAboutDialog = true }) {
+        Button(onClick = { onShowAboutDialogChange(true) }) {
             Text("About")
         }
     }

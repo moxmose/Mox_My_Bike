@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,29 +72,74 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
     val activeBikes = remember(bikes) { bikes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
     val activeOperationTypes = remember(operationTypes) { operationTypes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
 
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var expandedCardId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var editingCardId by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    if (showAddDialog) {
-        MaintenanceLogDialog(
-            bikes = activeBikes,
-            operationTypes = activeOperationTypes,
-            onDismissRequest = { showAddDialog = false },
-            onConfirm = {
-                viewModel.addLog(it.bikeId, it.operationTypeId, it.notes, it.kilometers, it.date, it.color)
-                showAddDialog = false
-            }
-        )
-    }
+    MaintenanceLogScreenContent(
+        logs = logs,
+        bikes = activeBikes,
+        operationTypes = activeOperationTypes,
+        searchQuery = searchQuery,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
+        sortProperty = sortProperty,
+        onSortPropertyChange = viewModel::onSortPropertyChanged,
+        sortDirection = sortDirection,
+        onSortDirectionChange = viewModel::onSortDirectionChanged,
+        showDismissed = showDismissed,
+        onShowDismissedToggle = viewModel::onShowDismissedToggled,
+        showAddDialog = showAddDialog,
+        onShowAddDialogChange = { showAddDialog = it },
+        onAddLog = viewModel::addLog,
+        expandedCardId = expandedCardId,
+        onCardExpanded = { id -> expandedCardId = if (expandedCardId == id) null else id },
+        editingCardId = editingCardId,
+        onEditLog = { log -> editingCardId = log.id },
+        onUpdateLog = {
+            viewModel.updateLog(it)
+            editingCardId = null
+        },
+        onDismissLog = viewModel::dismissLog,
+        onRestoreLog = viewModel::restoreLog
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MaintenanceLogScreenContent(
+    logs: List<MaintenanceLogDetails>,
+    bikes: List<Bike>,
+    operationTypes: List<OperationType>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    sortProperty: SortProperty,
+    onSortPropertyChange: (SortProperty) -> Unit,
+    sortDirection: SortDirection,
+    onSortDirectionChange: () -> Unit,
+    showDismissed: Boolean,
+    onShowDismissedToggle: () -> Unit,
+    showAddDialog: Boolean,
+    onShowAddDialogChange: (Boolean) -> Unit,
+    onAddLog: (Int, Int, String?, Int?, Long, String?) -> Unit,
+    expandedCardId: Int?,
+    onCardExpanded: (Int) -> Unit,
+    editingCardId: Int?,
+    onEditLog: (MaintenanceLog) -> Unit,
+    onUpdateLog: (MaintenanceLog) -> Unit,
+    onDismissLog: (MaintenanceLog) -> Unit,
+    onRestoreLog: (MaintenanceLog) -> Unit,
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(onClick = { showAddDialog = true }) {
+                FloatingActionButton(onClick = { onShowAddDialogChange(true) }) {
                     Icon(Icons.Filled.Add, contentDescription = "Add Log")
                 }
                 Spacer(modifier = Modifier.padding(8.dp))
                 FloatingActionButton(
-                    onClick = { viewModel.onShowDismissedToggled() },
+                    onClick = onShowDismissedToggle,
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(
@@ -104,6 +150,18 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
             }
         }
     ) { paddingValues ->
+        if (showAddDialog) {
+            MaintenanceLogDialog(
+                bikes = bikes,
+                operationTypes = operationTypes,
+                onDismissRequest = { onShowAddDialogChange(false) },
+                onConfirm = { log ->
+                    onAddLog(log.bikeId, log.operationTypeId, log.notes, log.kilometers, log.date, log.color)
+                    onShowAddDialogChange(false)
+                }
+            )
+        }
+
         Column(Modifier.padding(paddingValues)) {
             Row(
                 modifier = Modifier
@@ -114,13 +172,12 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
             ) {
                 TextField(
                     value = searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    onValueChange = onSearchQueryChange,
                     label = { Text("Search") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     modifier = Modifier.weight(1f)
                 )
 
-                var showSortMenu by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { showSortMenu = true }) {
                         Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort by")
@@ -133,7 +190,7 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
                             DropdownMenuItem(
                                 text = { Text(prop.name.lowercase().replaceFirstChar { it.titlecase() }) },
                                 onClick = {
-                                    viewModel.onSortPropertyChanged(prop)
+                                    onSortPropertyChange(prop)
                                     showSortMenu = false
                                 },
                                 leadingIcon = {
@@ -146,7 +203,7 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
                     }
                 }
 
-                IconButton(onClick = { viewModel.onSortDirectionChanged() }) {
+                IconButton(onClick = onSortDirectionChange) {
                     Icon(
                         imageVector = if (sortDirection == SortDirection.DESCENDING) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
                         contentDescription = "Sort direction"
@@ -157,9 +214,15 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
                 items(logs, key = { it.log.id }) { logDetail ->
                     MaintenanceLogCard(
                         logDetail = logDetail,
-                        viewModel = viewModel,
-                        bikes = activeBikes,
-                        operationTypes = activeOperationTypes
+                        bikes = bikes,
+                        operationTypes = operationTypes,
+                        isExpanded = logDetail.log.id == expandedCardId,
+                        isEditing = logDetail.log.id == editingCardId,
+                        onExpand = { onCardExpanded(logDetail.log.id) },
+                        onEdit = { onEditLog(logDetail.log) },
+                        onSave = onUpdateLog,
+                        onDismiss = { onDismissLog(logDetail.log) },
+                        onRestore = { onRestoreLog(logDetail.log) }
                     )
                 }
             }
@@ -371,12 +434,17 @@ fun MaintenanceLogDialog(
 @Composable
 fun MaintenanceLogCard(
     logDetail: MaintenanceLogDetails,
-    viewModel: MaintenanceLogViewModel,
     bikes: List<Bike>,
     operationTypes: List<OperationType>,
+    isExpanded: Boolean,
+    isEditing: Boolean,
+    onExpand: () -> Unit,
+    onEdit: () -> Unit,
+    onSave: (MaintenanceLog) -> Unit,
+    onDismiss: () -> Unit,
+    onRestore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isEditing by remember { mutableStateOf(false) }
     var editedNotes by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.notes ?: "") }
     var editedKilometers by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.kilometers?.toString() ?: "") }
     var editedDate by remember(logDetail, isEditing) { mutableLongStateOf(logDetail.log.date) }
@@ -386,7 +454,6 @@ fun MaintenanceLogCard(
     var isBikeDropdownExpanded by remember { mutableStateOf(false) }
     var isOperationDropdownExpanded by remember { mutableStateOf(false) }
 
-    var isExpanded by remember { mutableStateOf(false) }
     val cardAlpha = if (logDetail.log.dismissed) 0.5f else 1f
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
@@ -419,7 +486,7 @@ fun MaintenanceLogCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .graphicsLayer(alpha = cardAlpha)
-            .clickable { isExpanded = !isExpanded }
+            .clickable { onExpand() }
             .animateContentSize(),
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
@@ -596,23 +663,30 @@ fun MaintenanceLogCard(
             Column {
                 IconButton(onClick = {
                     if (isEditing) {
-                        val bike = selectedBike
-                        val op = selectedOperationType
-                        if (bike != null && op != null) {
-                            viewModel.updateLog(logDetail.log.copy(notes = editedNotes, kilometers = editedKilometers.toIntOrNull(), date = editedDate, bikeId = bike.id, operationTypeId = op.id))
-                        }
+                        val updatedLog = logDetail.log.copy(
+                            notes = editedNotes,
+                            kilometers = editedKilometers.toIntOrNull(),
+                            date = editedDate,
+                            bikeId = selectedBike?.id ?: logDetail.log.bikeId,
+                            operationTypeId = selectedOperationType?.id ?: logDetail.log.operationTypeId
+                        )
+                        onSave(updatedLog)
+                    } else {
+                        onEdit()
                     }
-                    isEditing = !isEditing
                 }) {
-                    Icon(imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit, contentDescription = "Edit Log")
+                    Icon(
+                        imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
+                        contentDescription = if (isEditing) "Save Log" else "Edit Log"
+                    )
                 }
                 if (isEditing) {
                     IconButton(
                         onClick = {
                             if (logDetail.log.dismissed) {
-                                viewModel.restoreLog(logDetail.log)
+                                onRestore()
                             } else {
-                                viewModel.dismissLog(logDetail.log)
+                                onDismiss()
                             }
                         }
                     ) {
