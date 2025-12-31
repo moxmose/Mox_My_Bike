@@ -61,6 +61,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,28 +84,60 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
     val activeOperationTypes by viewModel.activeOperationTypes.collectAsState()
     val allOperationTypes by viewModel.allOperationTypes.collectAsState()
-    var showDialog by remember { mutableStateOf(false) }
-    var showDismissed by remember { mutableStateOf(false) }
+    var showDismissed by rememberSaveable { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
-    var operationTypes by remember { mutableStateOf<List<OperationType>>(emptyList()) }
-    LaunchedEffect(activeOperationTypes, allOperationTypes, showDismissed) {
-        operationTypes = if (showDismissed) allOperationTypes else activeOperationTypes
+    val typesToShow = if (showDismissed) allOperationTypes else activeOperationTypes
+
+    OperationTypeScreenContent(
+        operationTypes = typesToShow,
+        onAddOperationType = viewModel::addOperationType,
+        onUpdateOperationTypes = viewModel::updateOperationTypes,
+        onUpdateOperationType = viewModel::updateOperationType,
+        onDismissOperationType = viewModel::dismissOperationType,
+        onRestoreOperationType = viewModel::restoreOperationType,
+        showDismissed = showDismissed,
+        onToggleShowDismissed = { showDismissed = !showDismissed },
+        showAddDialog = showAddDialog,
+        onShowAddDialogChange = { showAddDialog = it }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun OperationTypeScreenContent(
+    operationTypes: List<OperationType>,
+    showDismissed: Boolean,
+    onToggleShowDismissed: () -> Unit,
+    showAddDialog: Boolean,
+    onShowAddDialogChange: (Boolean) -> Unit,
+    onAddOperationType: (String, String?, String?, String?) -> Unit,
+    onUpdateOperationTypes: (List<OperationType>) -> Unit,
+    onUpdateOperationType: (OperationType) -> Unit,
+    onDismissOperationType: (OperationType) -> Unit,
+    onRestoreOperationType: (OperationType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var operationTypesState by remember(operationTypes) { mutableStateOf(operationTypes) }
+
+    LaunchedEffect(operationTypes) {
+        operationTypesState = operationTypes
     }
 
     Scaffold(
+        modifier = modifier,
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(onClick = { showDialog = true }) {
+                FloatingActionButton(onClick = { onShowAddDialogChange(true) }) {
                     Icon(Icons.Filled.Add, contentDescription = "Add Operation Type")
                 }
                 Spacer(modifier = Modifier.padding(8.dp))
                 FloatingActionButton(
-                    onClick = { showDismissed = !showDismissed },
+                    onClick = onToggleShowDismissed,
                     containerColor = MaterialTheme.colorScheme.secondary
                 ) {
                     Icon(
@@ -115,12 +148,12 @@ fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
             }
         }
     ) { paddingValues ->
-        if (showDialog) {
+        if (showAddDialog) {
             AddOperationTypeDialog(
-                onDismissRequest = { showDialog = false },
-                onConfirm = { description, iconIdentifier, color, photoUri ->
-                    viewModel.addOperationType(description, iconIdentifier, color, photoUri)
-                    showDialog = false
+                onDismissRequest = { onShowAddDialogChange(false) },
+                onConfirm = { description, icon, color, photoUri ->
+                    onAddOperationType(description, icon, color, photoUri)
+                    onShowAddDialogChange(false)
                 }
             )
         }
@@ -135,24 +168,26 @@ fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
                 style = MaterialTheme.typography.bodySmall
             )
             DraggableLazyColumn(
-                items = operationTypes,
+                items = operationTypesState,
                 key = { _, operationType -> operationType.id },
                 onMove = { from, to ->
-                    operationTypes = operationTypes.toMutableList().apply {
+                    operationTypesState = operationTypesState.toMutableList().apply {
                         add(to, removeAt(from))
                     }
                 },
                 onDrop = {
-                    val reorderedBikes = operationTypes.mapIndexed { index, operationType ->
-                        operationType.copy(displayOrder = index)
+                    val reorderedTypes = operationTypesState.mapIndexed { index, type ->
+                        type.copy(displayOrder = index)
                     }
-                    viewModel.updateOperationTypes(reorderedBikes)
+                    onUpdateOperationTypes(reorderedTypes)
                 },
                 modifier = Modifier.fillMaxSize(),
                 itemContent = { _, operationType ->
                     OperationTypeCard(
                         operationType = operationType,
-                        viewModel = viewModel
+                        onUpdateOperationType = onUpdateOperationType,
+                        onDismissOperationType = onDismissOperationType,
+                        onRestoreOperationType = onRestoreOperationType
                     )
                 }
             )
@@ -430,9 +465,15 @@ fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun OperationTypeCard(operationType: OperationType, viewModel: OperationTypeViewModel, modifier: Modifier = Modifier) {
+fun OperationTypeCard(
+    operationType: OperationType,
+    onUpdateOperationType: (OperationType) -> Unit,
+    onDismissOperationType: (OperationType) -> Unit,
+    onRestoreOperationType: (OperationType) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var isEditing by remember { mutableStateOf(false) }
-    var editedDescription by remember { mutableStateOf(operationType.description) }
+    var editedDescription by remember(operationType.description) { mutableStateOf(operationType.description) }
     val context = LocalContext.current
     var showFullImageDialog by remember { mutableStateOf<String?>(null) }
     var showNoPictureDialog by remember { mutableStateOf(false) }
@@ -466,13 +507,7 @@ fun OperationTypeCard(operationType: OperationType, viewModel: OperationTypeView
             } catch (e: SecurityException) {
                 Log.e("OperationTypeCard", "Failed to take persistable URI permission", e)
             }
-            viewModel.updateOperationType(operationType.copy(photoUri = it.toString()))
-        }
-    }
-
-    LaunchedEffect(operationType.description) {
-        if (!isEditing) {
-            editedDescription = operationType.description
+            onUpdateOperationType(operationType.copy(photoUri = it.toString()))
         }
     }
 
@@ -562,9 +597,9 @@ fun OperationTypeCard(operationType: OperationType, viewModel: OperationTypeView
                     IconButton(
                         onClick = { 
                             if (operationType.dismissed) {
-                                viewModel.restoreOperationType(operationType)
+                                onRestoreOperationType(operationType)
                             } else {
-                                viewModel.dismissOperationType(operationType)
+                                onDismissOperationType(operationType)
                             }
                          }
                     ) {
@@ -577,7 +612,7 @@ fun OperationTypeCard(operationType: OperationType, viewModel: OperationTypeView
                 IconButton(
                     onClick = {
                         if (isEditing) {
-                            viewModel.updateOperationType(operationType.copy(description = editedDescription))
+                            onUpdateOperationType(operationType.copy(description = editedDescription))
                         }
                         isEditing = !isEditing
                     }
