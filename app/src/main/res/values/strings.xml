@@ -1,3 +1,68 @@
 <resources>
-    <string name="app_name">Mox My Bike</string>
+    <string name="app_name">Mox Maintenance Logs</string>
+
+    <!-- Navigation -->
+    <string name="navigation_logs">Logs</string>
+    <string name="navigation_bikes">Bikes</string>
+    <string name="navigation_operations">Operations</string>
+    <string name="navigation_reports">Reports</string>
+    <string name="navigation_options">Options</string>
+
+    <!-- Options Screen -->
+    <string name="options_version_label">Version %1$s</string>
+    <string name="options_username_label">Username</string>
+    <string name="button_about">About</string>
+    <string name="about_dialog_title">About Mox My Bike</string>
+    <string name="about_dialog_content">This app helps you track maintenance logs for your bicycles. Keep your bikes in perfect shape!</string>
+    <string name="button_ok">OK</string>
+
+    <!-- Bikes & Operations -->
+    <string name="hold_and_drag_to_reorder">Hold and drag items to change order</string>
+    <string name="add_bike">Add Bike</string>
+    <string name="add_operation_type">Add Operation Type</string>
+    <string name="hide_dismissed">Hide Dismissed</string>
+    <string name="show_dismissed">Show Dismissed</string>
+    <string name="add_a_new_bike">Add a new bike</string>
+    <string name="add_a_new_operation_type">Add a new operation type</string>
+    <string name="bike_description">Bike description</string>
+    <string name="operation_type_description">Operation type description</string>
+    <string name="add_image">Add Image</string>
+    <string name="selected_image">Selected image</string>
+    <string name="button_add">Add</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="no_image_title">No Image</string>
+    <string name="no_image_message">No picture loaded, add one.</string>
+    <string name="full_size_bike_photo">Full-size bike photo</string>
+    <string name="full_size_operation_photo">Full-size operation photo</string>
+    <string name="bike_photo">Bike Photo</string>
+    <string name="operation_type_photo">Operation Type Photo</string>
+    <string name="edit_bike">Edit Bike</string>
+    <string name="save_bike">Save</string>
+    <string name="dismiss_bike">Dismiss Bike</string>
+    <string name="restore_bike">Restore Bike</string>
+    <string name="edit_operation_type">Edit Operation Type</string>
+    <string name="save_operation_type">Save</string>
+    <string name="dismiss_operation_type">Dismiss Operation Type</string>
+    <string name="restore_operation_type">Restore Operation Type</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
+
+    <!-- Maintenance Logs -->
+    <string name="search_logs">Search</string>
+    <string name="add_log">Add Log</string>
+    <string name="sort_by">Sort by</string>
+    <string name="sort_direction">Sort direction</string>
+    <string name="add_new_maintenance_log">Add New Maintenance Log</string>
+    <string name="select_a_bike">Select a bike</string>
+    <string name="select_an_operation">Select an operation</string>
+    <string name="kilometers_optional">Kilometers (optional)</string>
+    <string name="notes_optional">Notes (optional)</string>
+    <string name="date">Date</string>
+    <string name="select_date">Select Date</string>
+    <string name="edit_log">Edit Log</string>
+    <string name="save_log">Save Log</string>
+    <string name="dismiss_log">Dismiss Log</string>
+    <string name="restore_log">Restore Log</string>
+    <string name="bike_icon">Bike Icon</string>
+    <string name="operation_icon">Operation icon</string>
+
 </resources>
