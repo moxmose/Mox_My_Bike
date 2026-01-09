@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.moxmose.moxmaintenancelogs"
+    namespace = "com.moxmose.moxequiplog"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.moxmose.moxmaintenancelogs"
+        applicationId = "com.moxmose.moxequiplog"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
