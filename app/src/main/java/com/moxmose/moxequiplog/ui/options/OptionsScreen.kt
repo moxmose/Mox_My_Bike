@@ -25,17 +25,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.moxmose.moxequiplog.BuildConfig
 import com.moxmose.moxequiplog.R
+import com.moxmose.moxequiplog.ui.equipments.EquipmentMediaSelector
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = koinViewModel()) {
     val username by viewModel.username.collectAsState()
+    val favoriteIcon by viewModel.favoriteIcon.collectAsState()
+    val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
 
     OptionsScreenContent(
         modifier = modifier,
         username = username,
+        favoriteIcon = favoriteIcon,
+        favoritePhotoUri = favoritePhotoUri,
         onUsernameChange = { viewModel.setUsername(it) },
+        onFavoriteResourceChange = { iconId, photoUri -> 
+            viewModel.setFavoriteResource(iconId, photoUri) 
+        },
         showAboutDialog = showAboutDialog,
         onShowAboutDialogChange = { showAboutDialog = it }
     )
@@ -45,7 +53,10 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
 fun OptionsScreenContent(
     modifier: Modifier = Modifier,
     username: String,
+    favoriteIcon: String?,
+    favoritePhotoUri: String?,
     onUsernameChange: (String) -> Unit,
+    onFavoriteResourceChange: (String?, String?) -> Unit,
     showAboutDialog: Boolean,
     onShowAboutDialogChange: (Boolean) -> Unit
 ) {
@@ -83,7 +94,26 @@ fun OptionsScreenContent(
             label = { Text(stringResource(R.string.options_username_label)) },
             modifier = Modifier.fillMaxWidth()
         )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "Media Mezzo Predefinito",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Start
+        )
+        
         Spacer(modifier = Modifier.height(16.dp))
+
+        EquipmentMediaSelector(
+            photoUri = favoritePhotoUri,
+            iconIdentifier = favoriteIcon,
+            onMediaSelected = onFavoriteResourceChange,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
 
         Button(onClick = { onShowAboutDialogChange(true) }) {
             Text(stringResource(R.string.button_about))

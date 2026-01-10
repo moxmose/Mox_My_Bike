@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import com.moxmose.moxequiplog.ui.equipments.EquipmentsScreen
@@ -60,10 +61,17 @@ fun MoxEquipLogApp() {
                             contentDescription = stringResource(it.labelRes)
                         )
                     },
-                    label = { Text(stringResource(it.labelRes)) },
+                    label = { 
+                        Text(
+                            text = stringResource(it.labelRes),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        ) 
+                    },
                     selected = it == currentDestination,
                     onClick = { if (it.enabled) currentDestination = it },
-                    enabled = it.enabled
+                    enabled = it.enabled,
+                    alwaysShowLabel = false
                 )
             }
         }

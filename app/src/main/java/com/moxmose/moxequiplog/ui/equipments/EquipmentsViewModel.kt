@@ -2,6 +2,7 @@ package com.moxmose.moxequiplog.ui.equipments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moxmose.moxequiplog.data.AppSettingsManager
 import com.moxmose.moxequiplog.data.local.Equipment
 import com.moxmose.moxequiplog.data.local.EquipmentDao
 import kotlinx.coroutines.flow.SharingStarted
@@ -10,7 +11,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class EquipmentsViewModel(private val equipmentDao: EquipmentDao) : ViewModel() {
+class EquipmentsViewModel(
+    private val equipmentDao: EquipmentDao,
+    private val appSettingsManager: AppSettingsManager
+) : ViewModel() {
 
     val activeEquipments: StateFlow<List<Equipment>> = equipmentDao.getActiveEquipments()
         .stateIn(
@@ -26,12 +30,15 @@ class EquipmentsViewModel(private val equipmentDao: EquipmentDao) : ViewModel() 
             initialValue = emptyList()
         )
 
-    fun addEquipment(description: String, photoUri: String?) {
+    fun addEquipment(description: String, photoUri: String?, iconIdentifier: String? = null) {
         viewModelScope.launch {
             val currentEquipments = activeEquipments.first()
+            val defaultIcon = appSettingsManager.favoriteIcon.first()
+            
             val newEquipment = Equipment(
                 description = description,
                 photoUri = photoUri,
+                iconIdentifier = iconIdentifier ?: if (photoUri == null) defaultIcon else null,
                 displayOrder = currentEquipments.size
             )
             equipmentDao.insertEquipment(newEquipment)

@@ -10,6 +10,7 @@ data class Equipment(
     val id: Int = 0,
     val description: String,
     val photoUri: String? = null,
+    val iconIdentifier: String? = null,
     val displayOrder: Int = 0,
     @ColumnInfo(defaultValue = "false")
     val dismissed: Boolean = false,

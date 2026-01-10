@@ -3,7 +3,7 @@ package com.moxmose.moxequiplog.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-@Database(entities = [Equipment::class, OperationType::class, MaintenanceLog::class], version = 11, exportSchema = false)
+@Database(entities = [Equipment::class, OperationType::class, MaintenanceLog::class], version = 12, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun equipmentDao(): EquipmentDao
     abstract fun operationTypeDao(): OperationTypeDao

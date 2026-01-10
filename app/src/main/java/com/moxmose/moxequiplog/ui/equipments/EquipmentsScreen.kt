@@ -1,10 +1,5 @@
 package com.moxmose.moxequiplog.ui.equipments
 
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -16,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +33,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.Equipment
+import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -75,7 +69,7 @@ fun EquipmentsScreenContent(
     onToggleShowDismissed: () -> Unit,
     showAddDialog: Boolean,
     onShowAddDialogChange: (Boolean) -> Unit,
-    onAddEquipment: (String, String?) -> Unit,
+    onAddEquipment: (String, String?, String?) -> Unit,
     onUpdateEquipments: (List<Equipment>) -> Unit,
     onUpdateEquipment: (Equipment) -> Unit,
     onDismissEquipment: (Equipment) -> Unit,
@@ -111,8 +105,8 @@ fun EquipmentsScreenContent(
         if (showAddDialog) {
             AddEquipmentDialog(
                 onDismissRequest = { onShowAddDialogChange(false) },
-                onConfirm = {
-                    onAddEquipment(it.first, it.second)
+                onConfirm = { desc, uri, icon ->
+                    onAddEquipment(desc, uri, icon)
                     onShowAddDialogChange(false)
                 }
             )
@@ -317,24 +311,10 @@ private class DragDropState(
 }
 
 @Composable
-fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (Pair<String, String?>) -> Unit) {
+fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?, String?) -> Unit) {
     var description by remember { mutableStateOf("") }
     var photoUri by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, flags)
-                photoUri = it.toString()
-            } catch (e: SecurityException) {
-                Log.e("AddEquipmentDialog", "Failed to take persistable URI permission", e)
-            }
-        }
-    }
+    var iconId by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -349,7 +329,7 @@ fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (Pair<String, St
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     value = description,
@@ -357,40 +337,20 @@ fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (Pair<String, St
                     label = { Text(stringResource(R.string.equipment_description)) },
                     singleLine = true
                 )
-                Spacer(modifier = Modifier.padding(4.dp))
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .clickable { imagePickerLauncher.launch(arrayOf("image/*")) }
-                ) {
-                    if (photoUri != null) {
-                        AsyncImage(
-                            model = photoUri,
-                            contentDescription = stringResource(R.string.selected_image),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = stringResource(R.string.add_image),
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                EquipmentMediaSelector(
+                    photoUri = photoUri,
+                    iconIdentifier = iconId,
+                    onMediaSelected = { newIconId, newPhotoUri ->
+                        iconId = newIconId
+                        photoUri = newPhotoUri
                     }
-                }
+                )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    onConfirm(Pair(description, photoUri))
-                }
+                onClick = { onConfirm(description, photoUri, iconId) }
             ) {
                 Text(stringResource(R.string.button_add))
             }
@@ -457,26 +417,10 @@ fun EquipmentCard(
         FullImageDialog(photoUri = uri, onDismiss = { showFullImageDialog = null })
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, flags)
-            } catch (e: SecurityException) {
-                Log.e("EquipmentCard", "Failed to take persistable URI permission", e)
-            }
-            onUpdateEquipment(equipment.copy(photoUri = it.toString()))
-        }
-    }
-
     val imageRequest = ImageRequest.Builder(context)
         .data(equipment.photoUri)
         .crossfade(true)
         .build()
-
-    val placeholderPainter = rememberVectorPainter(image = Icons.AutoMirrored.Filled.List)
 
     Card(
         modifier = modifier
@@ -492,69 +436,65 @@ fun EquipmentCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
                     .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
                     .clickable {
-                        if (isEditing) {
-                            imagePickerLauncher.launch(arrayOf("image/*"))
-                        } else {
+                        if (!isEditing) {
                             if (equipment.photoUri != null) {
                                 showFullImageDialog = equipment.photoUri
-                            } else {
+                            } else if (equipment.iconIdentifier == null) {
                                 showNoPictureDialog = true
                             }
                         }
-                    }
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 if (equipment.photoUri != null) {
                     AsyncImage(
                         model = imageRequest,
                         contentDescription = stringResource(R.string.equipment_photo),
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = placeholderPainter,
-                        error = placeholderPainter
+                        contentScale = ContentScale.Crop
                     )
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.List,
-                            contentDescription = stringResource(R.string.equipment_photo),
-                            modifier = Modifier.size(36.dp), // 10% smaller
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
+                    val icon = EquipmentIconProvider.getIcon(equipment.iconIdentifier)
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = stringResource(R.string.equipment_photo),
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
-            if (isEditing) {
-                OutlinedTextField(
-                    value = editedDescription,
-                    onValueChange = { if (it.length <= 50) editedDescription = it },
-                    label = { Text(stringResource(R.string.equipment_description)) },
-                    placeholder = {
-                        Text(
-                            text = "id:${equipment.id} - no description",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
-            } else {
-                Text(
-                    text = if (editedDescription.isNotBlank()) editedDescription else "id:${equipment.id} - no description",
-                    color = if (editedDescription.isNotBlank()) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            
+            Column(modifier = Modifier.weight(1f)) {
+                if (isEditing) {
+                    OutlinedTextField(
+                        value = editedDescription,
+                        onValueChange = { if (it.length <= 50) editedDescription = it },
+                        label = { Text(stringResource(R.string.equipment_description)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    EquipmentMediaSelector(
+                        photoUri = equipment.photoUri,
+                        iconIdentifier = equipment.iconIdentifier,
+                        onMediaSelected = { iconId, photoUri ->
+                            onUpdateEquipment(equipment.copy(iconIdentifier = iconId, photoUri = photoUri))
+                        }
+                    )
+                } else {
+                    Text(
+                        text = if (editedDescription.isNotBlank()) editedDescription else "id:${equipment.id} - no description",
+                        color = if (editedDescription.isNotBlank()) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
+
             Row(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically

@@ -32,7 +32,7 @@ val appModule = module {
     single { AppSettingsManager(androidContext()) }
 
     // ViewModels
-    viewModel { EquipmentsViewModel(get()) }
+    viewModel { EquipmentsViewModel(get(), get()) }
     viewModel { OperationTypeViewModel(get()) }
     viewModel { MaintenanceLogViewModel(get(), get(), get()) }
     viewModel { OptionsViewModel(get()) }
