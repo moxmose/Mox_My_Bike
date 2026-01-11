@@ -1,6 +1,7 @@
 package com.moxmose.moxequiplog.ui.options
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -14,7 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 object EquipmentIconProvider {
     val icons = mapOf(
-        "directions_bike" to Icons.Default.DirectionsBike,
+        "directions_bike" to Icons.AutoMirrored.Filled.DirectionsBike,
         "electric_bike" to Icons.Default.ElectricBike,
         "moped" to Icons.Default.Moped,
         "directions_car" to Icons.Default.DirectionsCar,
@@ -26,6 +27,6 @@ object EquipmentIconProvider {
     )
 
     fun getIcon(identifier: String?): ImageVector {
-        return icons[identifier] ?: Icons.Default.DirectionsBike
+        return icons[identifier] ?: Icons.AutoMirrored.Filled.DirectionsBike
     }
 }

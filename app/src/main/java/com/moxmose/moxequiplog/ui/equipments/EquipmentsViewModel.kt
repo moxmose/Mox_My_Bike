@@ -3,17 +3,20 @@ package com.moxmose.moxequiplog.ui.equipments
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moxmose.moxequiplog.data.AppSettingsManager
+import com.moxmose.moxequiplog.data.MediaRepository
+import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Equipment
 import com.moxmose.moxequiplog.data.local.EquipmentDao
+import com.moxmose.moxequiplog.data.local.Media
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class EquipmentsViewModel(
     private val equipmentDao: EquipmentDao,
-    private val appSettingsManager: AppSettingsManager
+    private val appSettingsManager: AppSettingsManager,
+    private val mediaRepository: MediaRepository
 ) : ViewModel() {
 
     val activeEquipments: StateFlow<List<Equipment>> = equipmentDao.getActiveEquipments()
@@ -30,18 +33,60 @@ class EquipmentsViewModel(
             initialValue = emptyList()
         )
 
-    fun addEquipment(description: String, photoUri: String?, iconIdentifier: String? = null) {
+    val hiddenIcons: StateFlow<Set<String>> = appSettingsManager.hiddenIcons
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptySet()
+        )
+        
+    val hiddenImages: StateFlow<Set<String>> = appSettingsManager.hiddenImages
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptySet()
+        )
+
+    val favoriteIcon: StateFlow<String?> = appSettingsManager.favoriteIcon
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = null
+        )
+
+    val favoritePhotoUri: StateFlow<String?> = appSettingsManager.favoritePhotoUri
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = null
+        )
+        
+    val equipmentMedia: StateFlow<List<Media>> = mediaRepository.getMediaByCategory("EQUIPMENT")
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
+    val allCategories: StateFlow<List<Category>> = mediaRepository.allCategories
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
+    fun addEquipment(description: String, photoUri: String?, iconIdentifier: String?) {
         viewModelScope.launch {
-            val currentEquipments = activeEquipments.first()
-            val defaultIcon = appSettingsManager.favoriteIcon.first()
-            
-            val newEquipment = Equipment(
-                description = description,
-                photoUri = photoUri,
-                iconIdentifier = iconIdentifier ?: if (photoUri == null) defaultIcon else null,
-                displayOrder = currentEquipments.size
+            val currentList = allEquipments.value
+            val nextOrder = if (currentList.isEmpty()) 0 else currentList.maxOf { it.displayOrder } + 1
+            equipmentDao.insertEquipment(
+                Equipment(
+                    description = description,
+                    photoUri = photoUri,
+                    iconIdentifier = iconIdentifier,
+                    displayOrder = nextOrder
+                )
             )
-            equipmentDao.insertEquipment(newEquipment)
         }
     }
 
@@ -59,13 +104,47 @@ class EquipmentsViewModel(
 
     fun dismissEquipment(equipment: Equipment) {
         viewModelScope.launch {
-            updateEquipment(equipment.copy(dismissed = true))
+            equipmentDao.updateEquipment(equipment.copy(dismissed = true))
         }
     }
 
     fun restoreEquipment(equipment: Equipment) {
         viewModelScope.launch {
-            updateEquipment(equipment.copy(dismissed = false))
+            equipmentDao.updateEquipment(equipment.copy(dismissed = false))
         }
+    }
+    
+    fun addMedia(uri: String, category: String) {
+        viewModelScope.launch {
+            mediaRepository.addMedia(uri, category)
+        }
+    }
+
+    fun removeMedia(uri: String, category: String) {
+        viewModelScope.launch {
+            mediaRepository.removeMedia(uri, category)
+        }
+    }
+
+    fun updateMediaOrder(mediaList: List<Media>) {
+        viewModelScope.launch {
+            mediaRepository.updateMediaOrder(mediaList)
+        }
+    }
+
+    fun toggleIconVisibility(iconId: String) {
+        viewModelScope.launch {
+            appSettingsManager.toggleIconVisibility(iconId)
+        }
+    }
+
+    fun toggleImageVisibility(uri: String) {
+        viewModelScope.launch {
+            appSettingsManager.toggleImageVisibility(uri)
+        }
+    }
+
+    suspend fun isPhotoUsed(uri: String): Boolean {
+        return equipmentDao.countEquipmentsUsingPhoto(uri) > 0
     }
 }

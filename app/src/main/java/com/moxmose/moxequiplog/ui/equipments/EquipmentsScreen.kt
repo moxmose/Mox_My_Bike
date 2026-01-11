@@ -42,6 +42,10 @@ import org.koin.androidx.compose.koinViewModel
 fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
     val activeEquipments by viewModel.activeEquipments.collectAsState()
     val allEquipments by viewModel.allEquipments.collectAsState()
+    val hiddenIcons by viewModel.hiddenIcons.collectAsState()
+    val favoriteIcon by viewModel.favoriteIcon.collectAsState()
+    val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
+    
     var showDismissed by rememberSaveable { mutableStateOf(false) }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     
@@ -49,6 +53,9 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
 
     EquipmentsScreenContent(
         equipments = equipmentsToShow,
+        hiddenIcons = hiddenIcons,
+        favoriteIcon = favoriteIcon,
+        favoritePhotoUri = favoritePhotoUri,
         onAddEquipment = viewModel::addEquipment,
         onUpdateEquipments = viewModel::updateEquipments,
         onUpdateEquipment = viewModel::updateEquipment,
@@ -65,6 +72,9 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
 @Composable
 fun EquipmentsScreenContent(
     equipments: List<Equipment>,
+    hiddenIcons: Set<String>,
+    favoriteIcon: String?,
+    favoritePhotoUri: String?,
     showDismissed: Boolean,
     onToggleShowDismissed: () -> Unit,
     showAddDialog: Boolean,
@@ -104,6 +114,9 @@ fun EquipmentsScreenContent(
     ) { paddingValues ->
         if (showAddDialog) {
             AddEquipmentDialog(
+                defaultIcon = favoriteIcon,
+                defaultPhotoUri = favoritePhotoUri,
+                hiddenIcons = hiddenIcons,
                 onDismissRequest = { onShowAddDialogChange(false) },
                 onConfirm = { desc, uri, icon ->
                     onAddEquipment(desc, uri, icon)
@@ -139,6 +152,7 @@ fun EquipmentsScreenContent(
                 itemContent = { _, equipment ->
                     EquipmentCard(
                         equipment = equipment,
+                        hiddenIcons = hiddenIcons,
                         onUpdateEquipment = onUpdateEquipment,
                         onDismissEquipment = onDismissEquipment,
                         onRestoreEquipment = onRestoreEquipment
@@ -311,10 +325,16 @@ private class DragDropState(
 }
 
 @Composable
-fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?, String?) -> Unit) {
+fun AddEquipmentDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: (String, String?, String?) -> Unit,
+    defaultIcon: String? = null,
+    defaultPhotoUri: String? = null,
+    hiddenIcons: Set<String> = emptySet()
+) {
     var description by remember { mutableStateOf("") }
-    var photoUri by remember { mutableStateOf<String?>(null) }
-    var iconId by remember { mutableStateOf<String?>(null) }
+    var photoUri by remember { mutableStateOf<String?>(defaultPhotoUri) }
+    var iconId by remember { mutableStateOf<String?>(defaultIcon) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -341,6 +361,7 @@ fun AddEquipmentDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?
                 EquipmentMediaSelector(
                     photoUri = photoUri,
                     iconIdentifier = iconId,
+                    hiddenIcons = hiddenIcons,
                     onMediaSelected = { newIconId, newPhotoUri ->
                         iconId = newIconId
                         photoUri = newPhotoUri
@@ -368,7 +389,7 @@ fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = { onDismiss() }) {
                 Text(stringResource(R.string.button_ok))
             }
         },
@@ -387,6 +408,7 @@ fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
 @Composable
 fun EquipmentCard(
     equipment: Equipment,
+    hiddenIcons: Set<String>,
     onUpdateEquipment: (Equipment) -> Unit,
     onDismissEquipment: (Equipment) -> Unit,
     onRestoreEquipment: (Equipment) -> Unit,
@@ -481,6 +503,7 @@ fun EquipmentCard(
                     EquipmentMediaSelector(
                         photoUri = equipment.photoUri,
                         iconIdentifier = equipment.iconIdentifier,
+                        hiddenIcons = hiddenIcons,
                         onMediaSelected = { iconId, photoUri ->
                             onUpdateEquipment(equipment.copy(iconIdentifier = iconId, photoUri = photoUri))
                         }
