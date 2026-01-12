@@ -50,27 +50,6 @@ class OptionsViewModel(
             initialValue = null
         )
 
-    val hiddenIcons: StateFlow<Set<String>> = appSettingsManager.hiddenIcons
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptySet()
-        )
-
-    val hiddenImages: StateFlow<Set<String>> = appSettingsManager.hiddenImages
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptySet()
-        )
-
-    val equipmentMedia: StateFlow<List<Media>> = mediaRepository.getMediaByCategory("EQUIPMENT")
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptyList()
-        )
-
     val allMedia: StateFlow<List<Media>> = mediaRepository.allMedia
         .stateIn(
             scope = viewModelScope,
@@ -105,15 +84,9 @@ class OptionsViewModel(
         }
     }
 
-    fun toggleIconVisibility(iconId: String) {
+    fun toggleMediaVisibility(uri: String, category: String) {
         viewModelScope.launch {
-            appSettingsManager.toggleIconVisibility(iconId)
-        }
-    }
-
-    fun toggleImageVisibility(uri: String) {
-        viewModelScope.launch {
-            appSettingsManager.toggleImageVisibility(uri)
+            mediaRepository.toggleMediaVisibility(uri, category)
         }
     }
 

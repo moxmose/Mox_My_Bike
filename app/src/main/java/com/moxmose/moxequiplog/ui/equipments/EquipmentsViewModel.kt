@@ -33,20 +33,6 @@ class EquipmentsViewModel(
             initialValue = emptyList()
         )
 
-    val hiddenIcons: StateFlow<Set<String>> = appSettingsManager.hiddenIcons
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptySet()
-        )
-        
-    val hiddenImages: StateFlow<Set<String>> = appSettingsManager.hiddenImages
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = emptySet()
-        )
-
     val favoriteIcon: StateFlow<String?> = appSettingsManager.favoriteIcon
         .stateIn(
             scope = viewModelScope,
@@ -132,15 +118,9 @@ class EquipmentsViewModel(
         }
     }
 
-    fun toggleIconVisibility(iconId: String) {
+    fun toggleMediaVisibility(uri: String, category: String) {
         viewModelScope.launch {
-            appSettingsManager.toggleIconVisibility(iconId)
-        }
-    }
-
-    fun toggleImageVisibility(uri: String) {
-        viewModelScope.launch {
-            appSettingsManager.toggleImageVisibility(uri)
+            mediaRepository.toggleMediaVisibility(uri, category)
         }
     }
 

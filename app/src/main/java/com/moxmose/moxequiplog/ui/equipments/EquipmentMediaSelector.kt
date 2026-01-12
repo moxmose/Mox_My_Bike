@@ -51,15 +51,12 @@ fun EquipmentMediaSelector(
     iconIdentifier: String?,
     onMediaSelected: (String?, String?) -> Unit,
     modifier: Modifier = Modifier,
-    hiddenIcons: Set<String> = emptySet(),
-    hiddenImages: Set<String> = emptySet(),
     mediaLibrary: List<Media> = emptyList(),
     categories: List<Category> = emptyList(),
     onAddMedia: ((String, String) -> Unit)? = null,
     onRemoveMedia: ((String, String) -> Unit)? = null,
     onUpdateMediaOrder: ((List<Media>) -> Unit)? = null,
-    onToggleIconVisibility: ((String) -> Unit)? = null,
-    onToggleImageVisibility: ((String) -> Unit)? = null,
+    onToggleMediaVisibility: ((String, String) -> Unit)? = null,
     onSetDefaultInCategory: ((String, String?, String?) -> Unit)? = null,
     isPhotoUsed: (suspend (String) -> Boolean)? = null,
     isPrefsMode: Boolean = false,
@@ -94,13 +91,14 @@ fun EquipmentMediaSelector(
     imageToDelete?.let { media ->
         var isUsed by remember { mutableStateOf(false) }
         LaunchedEffect(media.uri) { isUsed = isPhotoUsed?.invoke(media.uri) ?: false }
+        val categoryName = categories.find { it.id == media.category }?.name ?: media.category
 
         AlertDialog(
             onDismissRequest = { imageToDelete = null },
             title = { Text("Elimina immagine") },
             text = {
                 Column {
-                    Text("Eliminare definitivamente dalla libreria (${media.category})?")
+                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?")
                     if (isUsed) {
                         Spacer(Modifier.height(8.dp))
                         Text("ATTENZIONE: In uso!", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
@@ -156,7 +154,7 @@ fun EquipmentMediaSelector(
                                     text = { Text("Tutte le categorie") },
                                     onClick = { currentFilterCategory = "ALL"; dropdownExpanded = false }
                                 )
-                                categories.forEach { cat ->
+                                categories.sortedBy { it.name }.forEach { cat ->
                                     DropdownMenuItem(
                                         text = { Text(cat.name) },
                                         onClick = { currentFilterCategory = cat.id; dropdownExpanded = false }
@@ -194,41 +192,60 @@ fun EquipmentMediaSelector(
                     
                     Spacer(Modifier.height(8.dp))
 
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = when {
-                                    currentFilterCategory == "ALL" -> "Seleziona una categoria per aggiungere media, riordinare o impostare il default."
-                                    isPrefsMode -> "Seleziona il default per ${categories.find { it.id == currentFilterCategory }?.name}. Trascina per ordinare."
-                                    else -> "Tocca per selezionare. Trascina per ordinare."
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+                    val isMixedMode = currentFilterCategory == "ALL"
+                    if (isMixedMode && isPrefsMode) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Clicca un elemento per impostarlo come default.", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Drag & drop e importazione non disponibili. Seleziona una categoria per abilitarli.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                                Spacer(Modifier.width(8.dp))
+                                val text = if (isPrefsMode) "Clicca per default, trascina per ordinare, importa nuove immagini." else "Tocca per selezionare, trascina per ordinare."
+                                Text(text, style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                     
                     Spacer(Modifier.height(12.dp))
 
-                    val filteredMedia = mediaLibrary.filter { media ->
-                        val matchesCategory = currentFilterCategory == "ALL" || media.category == currentFilterCategory
-                        val matchesHidden = if (showHidden) true 
-                                            else if (media.mediaType == "ICON") !hiddenIcons.contains(media.uri.removePrefix("icon:"))
-                                            else !hiddenImages.contains(media.uri)
-                        matchesCategory && matchesHidden
-                    }
+                    val filteredAndSortedMedia = mediaLibrary
+                        .filter { media ->
+                            val matchesCategory = currentFilterCategory == "ALL" || media.category == currentFilterCategory
+                            matchesCategory && (showHidden || !media.hidden)
+                        }
+                        .sortedWith(compareBy({ it.category }, { it.displayOrder }))
 
                     DraggableMediaGrid(
-                        items = filteredMedia,
+                        items = filteredAndSortedMedia,
                         onMove = { from, to ->
                             if (onUpdateMediaOrder != null && currentFilterCategory != "ALL") {
-                                val newList = filteredMedia.toMutableList().apply { add(to, removeAt(from)) }
+                                val newList = filteredAndSortedMedia.toMutableList().apply { add(to, removeAt(from)) }
                                 onUpdateMediaOrder(newList.mapIndexed { index, m -> m.copy(displayOrder = index) })
                             }
                         },
@@ -238,7 +255,7 @@ fun EquipmentMediaSelector(
                             val catColorHex = cat?.color ?: "#808080"
                             val catColor = Color(android.graphics.Color.parseColor(catColorHex))
                             
-                            val isSelected = if (isPrefsMode && photoUri == null && iconIdentifier == null) {
+                            val isSelected = if (isPrefsMode) {
                                 if (uriKey == "none") {
                                     cat?.defaultIconIdentifier == null && cat?.defaultPhotoUri == null
                                 } else {
@@ -258,17 +275,16 @@ fun EquipmentMediaSelector(
                                 media = media,
                                 categoryColor = catColor,
                                 isSelected = isSelected,
-                                isHidden = if (media.mediaType == "ICON") hiddenIcons.contains(uriKey) 
-                                           else hiddenImages.contains(media.uri),
+                                isHidden = media.hidden,
                                 isManagementMode = isPrefsMode || forcedCategory == null,
                                 onSelect = {
-                                    if (isPrefsMode && currentFilterCategory != "ALL") {
+                                    if (isPrefsMode) {
                                         if (media.mediaType == "ICON") {
-                                            onSetDefaultInCategory?.invoke(currentFilterCategory, if(uriKey == "none") null else uriKey, null)
+                                            onSetDefaultInCategory?.invoke(media.category, if(uriKey == "none") null else uriKey, null)
                                         } else {
-                                            onSetDefaultInCategory?.invoke(currentFilterCategory, null, media.uri)
+                                            onSetDefaultInCategory?.invoke(media.category, null, media.uri)
                                         }
-                                    } else if (!isPrefsMode) {
+                                    } else {
                                         if (media.mediaType == "ICON") {
                                             if (uriKey == "none") onMediaSelected(null, null)
                                             else onMediaSelected(uriKey, null)
@@ -279,8 +295,7 @@ fun EquipmentMediaSelector(
                                     }
                                 },
                                 onToggleVisibility = {
-                                    if (media.mediaType == "ICON") onToggleIconVisibility?.invoke(uriKey)
-                                    else onToggleImageVisibility?.invoke(media.uri)
+                                    onToggleMediaVisibility?.invoke(media.uri, media.category)
                                 },
                                 onDelete = { if (media.mediaType == "IMAGE") imageToDelete = media }
                             )
@@ -306,10 +321,10 @@ fun EquipmentMediaSelector(
                 AsyncImage(model = photoUri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
             }
             iconIdentifier != null -> {
-                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, forcedCategory ?: "EQUIPMENT"), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
             }
             else -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(imageVector = Icons.Default.NotInterested, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Nothing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -353,7 +368,7 @@ fun MediaGridItem(
                     }
                 } else {
                     Icon(
-                        imageVector = EquipmentIconProvider.getIcon(uriKey),
+                        imageVector = EquipmentIconProvider.getIcon(uriKey, media.category),
                         contentDescription = null,
                         modifier = Modifier.size(32.dp),
                         tint = if (isHidden) MaterialTheme.colorScheme.onSurface.copy(0.3f) else MaterialTheme.colorScheme.primary

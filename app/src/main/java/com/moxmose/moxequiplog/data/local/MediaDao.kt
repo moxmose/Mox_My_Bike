@@ -1,36 +1,34 @@
 package com.moxmose.moxequiplog.data.local
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MediaDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMedia(media: Media)
+    @Query("SELECT * FROM media ORDER BY displayOrder ASC")
+    fun getAllMedia(): Flow<List<Media>>
 
-    @Update
-    suspend fun updateMedia(media: Media)
-
-    @Update
-    suspend fun updateAllMedia(mediaList: List<Media>)
-
-    @Query("SELECT * FROM media_library WHERE category = :category ORDER BY displayOrder ASC, addedAt DESC")
+    @Query("SELECT * FROM media WHERE category = :category ORDER BY displayOrder ASC")
     fun getMediaByCategory(category: String): Flow<List<Media>>
 
-    @Query("SELECT * FROM media_library ORDER BY category ASC, displayOrder ASC, addedAt DESC")
-    fun getAllMedia(): Flow<List<Media>>
+    @Query("SELECT * FROM media WHERE uri = :uri AND category = :category")
+    suspend fun getMediaByUriAndCategory(uri: String, category: String): Media?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMedia(media: Media)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllMedia(media: List<Media>)
+
+    @Update
+    suspend fun updateAllMedia(media: List<Media>)
 
     @Delete
     suspend fun deleteMedia(media: Media)
 
-    @Query("SELECT * FROM media_library WHERE uri = :uri AND category = :category")
-    suspend fun getMediaByUriAndCategory(uri: String, category: String): Media?
-
-    @Query("SELECT MAX(displayOrder) FROM media_library WHERE category = :category")
+    @Query("SELECT MAX(displayOrder) FROM media WHERE category = :category")
     suspend fun getMaxOrder(category: String): Int?
+
+    @Query("UPDATE media SET hidden = NOT hidden WHERE uri = :uri AND category = :category")
+    suspend fun toggleHidden(uri: String, category: String)
 }

@@ -42,7 +42,7 @@ import org.koin.androidx.compose.koinViewModel
 fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
     val activeEquipments by viewModel.activeEquipments.collectAsState()
     val allEquipments by viewModel.allEquipments.collectAsState()
-    val hiddenIcons by viewModel.hiddenIcons.collectAsState()
+    val equipmentMedia by viewModel.equipmentMedia.collectAsState()
     val favoriteIcon by viewModel.favoriteIcon.collectAsState()
     val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
     
@@ -53,7 +53,7 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
 
     EquipmentsScreenContent(
         equipments = equipmentsToShow,
-        hiddenIcons = hiddenIcons,
+        equipmentMedia = equipmentMedia,
         favoriteIcon = favoriteIcon,
         favoritePhotoUri = favoritePhotoUri,
         onAddEquipment = viewModel::addEquipment,
@@ -64,7 +64,8 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
         showDismissed = showDismissed,
         onToggleShowDismissed = { showDismissed = !showDismissed },
         showAddDialog = showAddDialog,
-        onShowAddDialogChange = { showAddDialog = it }
+        onShowAddDialogChange = { showAddDialog = it },
+        onToggleMediaVisibility = viewModel::toggleMediaVisibility
     )
 }
 
@@ -72,7 +73,7 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
 @Composable
 fun EquipmentsScreenContent(
     equipments: List<Equipment>,
-    hiddenIcons: Set<String>,
+    equipmentMedia: List<com.moxmose.moxequiplog.data.local.Media>,
     favoriteIcon: String?,
     favoritePhotoUri: String?,
     showDismissed: Boolean,
@@ -84,6 +85,7 @@ fun EquipmentsScreenContent(
     onUpdateEquipment: (Equipment) -> Unit,
     onDismissEquipment: (Equipment) -> Unit,
     onRestoreEquipment: (Equipment) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var equipmentsState by remember(equipments) { mutableStateOf(equipments) }
@@ -116,12 +118,13 @@ fun EquipmentsScreenContent(
             AddEquipmentDialog(
                 defaultIcon = favoriteIcon,
                 defaultPhotoUri = favoritePhotoUri,
-                hiddenIcons = hiddenIcons,
+                mediaLibrary = equipmentMedia,
                 onDismissRequest = { onShowAddDialogChange(false) },
                 onConfirm = { desc, uri, icon ->
                     onAddEquipment(desc, uri, icon)
                     onShowAddDialogChange(false)
-                }
+                },
+                onToggleMediaVisibility = onToggleMediaVisibility
             )
         }
 
@@ -152,10 +155,11 @@ fun EquipmentsScreenContent(
                 itemContent = { _, equipment ->
                     EquipmentCard(
                         equipment = equipment,
-                        hiddenIcons = hiddenIcons,
+                        equipmentMedia = equipmentMedia,
                         onUpdateEquipment = onUpdateEquipment,
                         onDismissEquipment = onDismissEquipment,
-                        onRestoreEquipment = onRestoreEquipment
+                        onRestoreEquipment = onRestoreEquipment,
+                        onToggleMediaVisibility = onToggleMediaVisibility
                     )
                 }
             )
@@ -330,7 +334,8 @@ fun AddEquipmentDialog(
     onConfirm: (String, String?, String?) -> Unit,
     defaultIcon: String? = null,
     defaultPhotoUri: String? = null,
-    hiddenIcons: Set<String> = emptySet()
+    mediaLibrary: List<com.moxmose.moxequiplog.data.local.Media>,
+    onToggleMediaVisibility: (String, String) -> Unit
 ) {
     var description by remember { mutableStateOf("") }
     var photoUri by remember { mutableStateOf<String?>(defaultPhotoUri) }
@@ -361,11 +366,13 @@ fun AddEquipmentDialog(
                 EquipmentMediaSelector(
                     photoUri = photoUri,
                     iconIdentifier = iconId,
-                    hiddenIcons = hiddenIcons,
+                    mediaLibrary = mediaLibrary,
                     onMediaSelected = { newIconId, newPhotoUri ->
                         iconId = newIconId
                         photoUri = newPhotoUri
-                    }
+                    },
+                    onToggleMediaVisibility = onToggleMediaVisibility,
+                    forcedCategory = "EQUIPMENT"
                 )
             }
         },
@@ -408,10 +415,11 @@ fun FullImageDialog(photoUri: String, onDismiss: () -> Unit) {
 @Composable
 fun EquipmentCard(
     equipment: Equipment,
-    hiddenIcons: Set<String>,
+    equipmentMedia: List<com.moxmose.moxequiplog.data.local.Media>,
     onUpdateEquipment: (Equipment) -> Unit,
     onDismissEquipment: (Equipment) -> Unit,
     onRestoreEquipment: (Equipment) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -503,10 +511,12 @@ fun EquipmentCard(
                     EquipmentMediaSelector(
                         photoUri = equipment.photoUri,
                         iconIdentifier = equipment.iconIdentifier,
-                        hiddenIcons = hiddenIcons,
+                        mediaLibrary = equipmentMedia,
                         onMediaSelected = { iconId, photoUri ->
                             onUpdateEquipment(equipment.copy(iconIdentifier = iconId, photoUri = photoUri))
-                        }
+                        },
+                        onToggleMediaVisibility = onToggleMediaVisibility,
+                        forcedCategory = "EQUIPMENT"
                     )
                 } else {
                     Text(

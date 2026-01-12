@@ -31,8 +31,6 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
     val username by viewModel.username.collectAsState()
     val favoriteIcon by viewModel.favoriteIcon.collectAsState()
     val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
-    val hiddenIcons by viewModel.hiddenIcons.collectAsState()
-    val hiddenImages by viewModel.hiddenImages.collectAsState()
     val allMedia by viewModel.allMedia.collectAsState()
     val allCategories by viewModel.allCategories.collectAsState()
     val allColors by viewModel.allColors.collectAsState()
@@ -44,8 +42,6 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
         username = username,
         favoriteIcon = favoriteIcon,
         favoritePhotoUri = favoritePhotoUri,
-        hiddenIcons = hiddenIcons,
-        hiddenImages = hiddenImages,
         allMedia = allMedia,
         allCategories = allCategories,
         allColors = allColors,
@@ -56,8 +52,7 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
         onAddMedia = { uri, cat -> viewModel.addMedia(uri, cat) },
         onRemoveMedia = { uri, cat -> viewModel.removeMedia(uri, cat) },
         onUpdateMediaOrder = { viewModel.updateMediaOrder(it) },
-        onToggleIconVisibility = { viewModel.toggleIconVisibility(it) },
-        onToggleImageVisibility = { viewModel.toggleImageVisibility(it) },
+        onToggleMediaVisibility = { uri, category -> viewModel.toggleMediaVisibility(uri, category) },
         onUpdateCategoryColor = { catId, hex -> viewModel.updateCategoryColor(catId, hex) },
         isPhotoUsed = { viewModel.isPhotoUsed(it) },
         showAboutDialog = showAboutDialog,
@@ -71,8 +66,6 @@ fun OptionsScreenContent(
     username: String,
     favoriteIcon: String?,
     favoritePhotoUri: String?,
-    hiddenIcons: Set<String>,
-    hiddenImages: Set<String>,
     allMedia: List<Media>,
     allCategories: List<Category>,
     allColors: List<AppColor>,
@@ -81,8 +74,7 @@ fun OptionsScreenContent(
     onAddMedia: (String, String) -> Unit,
     onRemoveMedia: (String, String) -> Unit,
     onUpdateMediaOrder: (List<Media>) -> Unit,
-    onToggleIconVisibility: (String) -> Unit,
-    onToggleImageVisibility: (String) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
     onUpdateCategoryColor: (String, String) -> Unit,
     isPhotoUsed: suspend (String) -> Boolean,
     showAboutDialog: Boolean,
@@ -150,16 +142,13 @@ fun OptionsScreenContent(
             EquipmentMediaSelector(
                 photoUri = null,
                 iconIdentifier = null,
-                hiddenIcons = hiddenIcons,
-                hiddenImages = hiddenImages,
                 mediaLibrary = allMedia,
                 categories = allCategories,
                 onMediaSelected = { _, _ -> }, // Usiamo onSetDefaultInCategory per le Prefs
                 onAddMedia = onAddMedia,
                 onRemoveMedia = onRemoveMedia,
                 onUpdateMediaOrder = onUpdateMediaOrder,
-                onToggleIconVisibility = onToggleIconVisibility,
-                onToggleImageVisibility = onToggleImageVisibility,
+                onToggleMediaVisibility = onToggleMediaVisibility,
                 onSetDefaultInCategory = onSetCategoryDefault,
                 isPhotoUsed = isPhotoUsed,
                 isPrefsMode = true,

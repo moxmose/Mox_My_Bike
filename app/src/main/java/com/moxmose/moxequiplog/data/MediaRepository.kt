@@ -50,23 +50,32 @@ class MediaRepository(
 
     private suspend fun initializeIconsForCategory(categoryId: String) {
         val currentMedia = mediaDao.getMediaByCategory(categoryId).first()
-        val existingUris = currentMedia.map { it.uri }
-        if (!existingUris.contains("icon:none")) {
-            val maxOrder = mediaDao.getMaxOrder(categoryId) ?: -1
-            mediaDao.insertMedia(Media(uri = "icon:none", category = categoryId, mediaType = "ICON", displayOrder = maxOrder + 1))
+        val existingUris = currentMedia.map { it.uri }.toSet()
+        var maxOrder = mediaDao.getMaxOrder(categoryId) ?: -1
+
+        val iconsToInsert = mutableListOf<Media>()
+
+        // Assicura che "none" sia presente e sia il primo
+        val noneUri = "icon:none"
+        if (!existingUris.contains(noneUri)) {
+            iconsToInsert.add(Media(uri = noneUri, category = categoryId, mediaType = "ICON", displayOrder = 0, hidden = false))
+            maxOrder++
         }
-        EquipmentIconProvider.icons.keys.forEach { iconId ->
+
+        // Aggiungi le icone mancanti
+        val icons = EquipmentIconProvider.getIconsForCategory(categoryId)
+        icons.keys.forEach { iconId ->
             val uri = "icon:$iconId"
             if (!existingUris.contains(uri)) {
-                val maxOrder = mediaDao.getMaxOrder(categoryId) ?: -1
-                mediaDao.insertMedia(Media(uri = uri, category = categoryId, mediaType = "ICON", displayOrder = maxOrder + 1))
+                iconsToInsert.add(Media(uri = uri, category = categoryId, mediaType = "ICON", displayOrder = ++maxOrder, hidden = false))
             }
         }
+        mediaDao.insertAllMedia(iconsToInsert)
     }
 
     suspend fun addMedia(uri: String, category: String) {
         val maxOrder = mediaDao.getMaxOrder(category) ?: -1
-        mediaDao.insertMedia(Media(uri = uri, category = category, mediaType = "IMAGE", displayOrder = maxOrder + 1))
+        mediaDao.insertMedia(Media(uri = uri, category = category, mediaType = "IMAGE", displayOrder = maxOrder + 1, hidden = false))
     }
 
     suspend fun updateMediaOrder(mediaList: List<Media>) {
@@ -78,6 +87,10 @@ class MediaRepository(
         if (media != null && media.mediaType == "IMAGE") {
             mediaDao.deleteMedia(media)
         }
+    }
+
+    suspend fun toggleMediaVisibility(uri: String, category: String) {
+        mediaDao.toggleHidden(uri, category)
     }
 
     suspend fun setCategoryDefault(categoryId: String, iconId: String?, photoUri: String?) {
