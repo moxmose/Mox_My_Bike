@@ -33,23 +33,6 @@ class OptionsViewModel(
             initialValue = ""
         )
 
-    // Default per l'equipaggiamento (ora presi dalla tabella Category)
-    val favoriteIcon: StateFlow<String?> = mediaRepository.allCategories
-        .map { cats -> cats.find { it.id == "EQUIPMENT" }?.defaultIconIdentifier }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = null
-        )
-
-    val favoritePhotoUri: StateFlow<String?> = mediaRepository.allCategories
-        .map { cats -> cats.find { it.id == "EQUIPMENT" }?.defaultPhotoUri }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = null
-        )
-
     val allMedia: StateFlow<List<Media>> = mediaRepository.allMedia
         .stateIn(
             scope = viewModelScope,
@@ -77,7 +60,6 @@ class OptionsViewModel(
         }
     }
 
-    // Imposta il default per una categoria specifica
     fun setCategoryDefault(categoryId: String, iconId: String?, photoUri: String?) {
         viewModelScope.launch {
             mediaRepository.setCategoryDefault(categoryId, iconId, photoUri)
@@ -117,6 +99,30 @@ class OptionsViewModel(
     fun addColor(hex: String, name: String) {
         viewModelScope.launch {
             mediaRepository.addColor(hex, name)
+        }
+    }
+
+    fun updateColor(color: AppColor) {
+        viewModelScope.launch {
+            mediaRepository.updateColor(color)
+        }
+    }
+
+    fun updateColorsOrder(colors: List<AppColor>) {
+        viewModelScope.launch {
+            mediaRepository.updateColorsOrder(colors)
+        }
+    }
+
+    fun toggleColorVisibility(id: Long) {
+        viewModelScope.launch {
+            mediaRepository.toggleColorVisibility(id)
+        }
+    }
+
+    fun deleteColor(color: AppColor) {
+        viewModelScope.launch {
+            mediaRepository.deleteColor(color)
         }
     }
 

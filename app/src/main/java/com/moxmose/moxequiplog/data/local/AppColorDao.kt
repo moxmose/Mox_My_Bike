@@ -1,15 +1,13 @@
 package com.moxmose.moxequiplog.data.local
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AppColorDao {
+    @Query("SELECT * FROM app_colors ORDER BY displayOrder ASC")
+    fun getAllColors(): Flow<List<AppColor>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertColor(color: AppColor)
 
@@ -22,12 +20,9 @@ interface AppColorDao {
     @Delete
     suspend fun deleteColor(color: AppColor)
 
-    @Query("SELECT * FROM app_colors ORDER BY displayOrder ASC")
-    fun getAllColors(): Flow<List<AppColor>>
-
-    @Query("SELECT * FROM app_colors WHERE hexValue = :hex")
-    suspend fun getColorByHex(hex: String): AppColor?
-
     @Query("SELECT MAX(displayOrder) FROM app_colors")
     suspend fun getMaxOrder(): Int?
+
+    @Query("UPDATE app_colors SET hidden = NOT hidden WHERE id = :id")
+    suspend fun toggleHidden(id: Long)
 }

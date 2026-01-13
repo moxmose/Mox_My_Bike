@@ -5,9 +5,11 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "app_colors")
 data class AppColor(
-    @PrimaryKey
-    val hexValue: String, // e.g. "#FF0000"
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val hexValue: String,
     val name: String,
-    val isSystem: Boolean = false,
-    val displayOrder: Int = 0
+    val isDefault: Boolean = false,
+    val displayOrder: Int = 0,
+    val hidden: Boolean = false
 )

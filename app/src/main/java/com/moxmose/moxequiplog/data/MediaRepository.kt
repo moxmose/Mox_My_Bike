@@ -24,13 +24,13 @@ class MediaRepository(
             val defaultColors = mutableListOf<AppColor>()
             var order = 0
             val standard = listOf("#4CAF50" to "Verde", "#2196F3" to "Blu", "#F44336" to "Rosso")
-            standard.forEach { (hex, name) -> defaultColors.add(AppColor(hex, name, true, order++)) }
+            standard.forEach { (hex, name) -> defaultColors.add(AppColor(hexValue = hex, name = name, isDefault = true, displayOrder = order++, hidden = false)) }
             
-            val vivid = listOf("#883932" to "C64 Red", "#67B6BD" to "C64 Cyan", "#55AA3C" to "C64 Green")
-            vivid.forEach { (hex, name) -> defaultColors.add(AppColor(hex, name, true, order++)) }
+            val vivid = listOf("#00FFFF" to "Vivid Cyan", "#FF00FF" to "Vivid Magenta", "#FFFF00" to "Vivid Yellow")
+            vivid.forEach { (hex, name) -> defaultColors.add(AppColor(hexValue = hex, name = name, isDefault = true, displayOrder = order++, hidden = false)) }
 
-            val pastel = listOf("#FFD1DC" to "Pastel Pink", "#AEC6CF" to "Pastel Blue", "#77DD77" to "Pastel Green")
-            pastel.forEach { (hex, name) -> defaultColors.add(AppColor(hex, name, true, order++)) }
+            val pastel = listOf("#FFD1DC" to "Pastel Pink", "#AEC6CF" to "Pastel Blue", "#77DD77" to "Pastel Green", "#FFFAA0" to "Pastel Yellow", "#ADD8E6" to "Pastel Light Blue", "#98FB98" to "Pastel Mint Green")
+            pastel.forEach { (hex, name) -> defaultColors.add(AppColor(hexValue = hex, name = name, isDefault = true, displayOrder = order++, hidden = false)) }
 
             defaultColors.forEach { appColorDao.insertColor(it) }
         }
@@ -112,14 +112,24 @@ class MediaRepository(
 
     suspend fun addColor(hex: String, name: String) {
         val maxOrder = appColorDao.getMaxOrder() ?: -1
-        appColorDao.insertColor(AppColor(hex, name, false, maxOrder + 1))
+        appColorDao.insertColor(AppColor(hexValue = hex, name = name, isDefault = false, displayOrder = maxOrder + 1, hidden = false))
     }
 
-    suspend fun deleteColor(color: AppColor) {
-        appColorDao.deleteColor(color)
+    suspend fun updateColor(color: AppColor) {
+        appColorDao.updateColor(color)
     }
 
     suspend fun updateColorsOrder(colors: List<AppColor>) {
         appColorDao.updateAllColors(colors)
+    }
+
+    suspend fun toggleColorVisibility(id: Long) {
+        appColorDao.toggleHidden(id)
+    }
+
+    suspend fun deleteColor(color: AppColor) {
+        if (!color.isDefault) {
+            appColorDao.deleteColor(color)
+        }
     }
 }

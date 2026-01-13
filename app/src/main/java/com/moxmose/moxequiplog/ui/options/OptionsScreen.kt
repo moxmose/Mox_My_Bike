@@ -3,60 +3,80 @@ package com.moxmose.moxequiplog.ui.options
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.moxmose.moxequiplog.BuildConfig
 import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.ui.equipments.EquipmentMediaSelector
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = koinViewModel()) {
     val username by viewModel.username.collectAsState()
-    val favoriteIcon by viewModel.favoriteIcon.collectAsState()
-    val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
     val allMedia by viewModel.allMedia.collectAsState()
     val allCategories by viewModel.allCategories.collectAsState()
     val allColors by viewModel.allColors.collectAsState()
     
     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
+    var showColorPicker by rememberSaveable { mutableStateOf<String?>(null) }
 
     OptionsScreenContent(
         modifier = modifier,
         username = username,
-        favoriteIcon = favoriteIcon,
-        favoritePhotoUri = favoritePhotoUri,
         allMedia = allMedia,
         allCategories = allCategories,
         allColors = allColors,
-        onUsernameChange = { viewModel.setUsername(it) },
-        onSetCategoryDefault = { catId, iconId, photoUri -> 
-            viewModel.setCategoryDefault(catId, iconId, photoUri) 
+        onUsernameChange = viewModel::setUsername,
+        onSetCategoryDefault = viewModel::setCategoryDefault,
+        onAddMedia = viewModel::addMedia,
+        onRemoveMedia = viewModel::removeMedia,
+        onUpdateMediaOrder = viewModel::updateMediaOrder,
+        onToggleMediaVisibility = viewModel::toggleMediaVisibility,
+        onUpdateCategoryColor = { catId, hex -> 
+            viewModel.updateCategoryColor(catId, hex)
+            showColorPicker = null
         },
-        onAddMedia = { uri, cat -> viewModel.addMedia(uri, cat) },
-        onRemoveMedia = { uri, cat -> viewModel.removeMedia(uri, cat) },
-        onUpdateMediaOrder = { viewModel.updateMediaOrder(it) },
-        onToggleMediaVisibility = { uri, category -> viewModel.toggleMediaVisibility(uri, category) },
-        onUpdateCategoryColor = { catId, hex -> viewModel.updateCategoryColor(catId, hex) },
         isPhotoUsed = { viewModel.isPhotoUsed(it) },
         showAboutDialog = showAboutDialog,
-        onShowAboutDialogChange = { showAboutDialog = it }
+        onShowAboutDialogChange = { showAboutDialog = it },
+        showColorPicker = showColorPicker,
+        onShowColorPickerChange = { showColorPicker = it },
+        onAddColor = viewModel::addColor,
+        onUpdateColor = viewModel::updateColor,
+        onUpdateColorsOrder = viewModel::updateColorsOrder,
+        onToggleColorVisibility = viewModel::toggleColorVisibility
     )
 }
 
@@ -64,8 +84,6 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
 fun OptionsScreenContent(
     modifier: Modifier = Modifier,
     username: String,
-    favoriteIcon: String?,
-    favoritePhotoUri: String?,
     allMedia: List<Media>,
     allCategories: List<Category>,
     allColors: List<AppColor>,
@@ -78,18 +96,38 @@ fun OptionsScreenContent(
     onUpdateCategoryColor: (String, String) -> Unit,
     isPhotoUsed: suspend (String) -> Boolean,
     showAboutDialog: Boolean,
-    onShowAboutDialogChange: (Boolean) -> Unit
+    onShowAboutDialogChange: (Boolean) -> Unit,
+    showColorPicker: String?,
+    onShowColorPickerChange: (String?) -> Unit,
+    onAddColor: (String, String) -> Unit,
+    onUpdateColor: (AppColor) -> Unit,
+    onUpdateColorsOrder: (List<AppColor>) -> Unit,
+    onToggleColorVisibility: (Long) -> Unit
 ) {
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { onShowAboutDialogChange(false) },
             title = { Text(stringResource(R.string.about_dialog_title)) },
-            text = { Text(stringResource(R.string.about_dialog_content)) },
+            text = { Text(stringResource(R.string.about_dialog_content, BuildConfig.VERSION_NAME)) },
             confirmButton = {
                 TextButton(onClick = { onShowAboutDialogChange(false) }) {
                     Text(stringResource(R.string.button_ok))
                 }
             }
+        )
+    }
+
+    showColorPicker?.let {
+        val category = allCategories.find { it.id == showColorPicker }!!
+        ColorPickerDialog(
+            allColors = allColors,
+            category = category,
+            onDismiss = { onShowColorPickerChange(null) },
+            onColorSelected = { onUpdateCategoryColor(category.id, it) },
+            onAddColor = onAddColor,
+            onUpdateColor = onUpdateColor,
+            onUpdateColorsOrder = onUpdateColorsOrder,
+            onToggleColorVisibility = onToggleColorVisibility
         )
     }
 
@@ -109,7 +147,6 @@ fun OptionsScreenContent(
             textAlign = TextAlign.Center
         )
 
-        // Card Profilo
         OptionsSectionCard(title = "Profilo") {
             OutlinedTextField(
                 value = username,
@@ -119,22 +156,27 @@ fun OptionsScreenContent(
             )
         }
 
-        // Card Categorie e Colori
         OptionsSectionCard(
             title = "Sezioni e Colori",
             description = "Personalizza i colori identificativi per ogni sezione dell'app."
         ) {
             allCategories.forEach { category ->
-                CategoryColorRow(
-                    category = category,
-                    allColors = allColors,
-                    onColorSelected = { onUpdateCategoryColor(category.id, it) }
-                )
-                if (category != allCategories.last()) Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(category.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(12.dp))
+                     Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(category.color)))
+                            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                            .clickable { onShowColorPickerChange(category.id) }
+                    )
+                }
+                if (category != allCategories.last()) Divider(Modifier.padding(vertical = 12.dp))
             }
         }
 
-        // Card Gestione Media Completa (Unica card per tutto)
         OptionsSectionCard(
             title = "Gestione Media e Default",
             description = "Punto unico per gestire i media. Seleziona una categoria specifica per impostare l'elemento di default per quella sezione."
@@ -144,7 +186,7 @@ fun OptionsScreenContent(
                 iconIdentifier = null,
                 mediaLibrary = allMedia,
                 categories = allCategories,
-                onMediaSelected = { _, _ -> }, // Usiamo onSetDefaultInCategory per le Prefs
+                onMediaSelected = { _, _ -> },
                 onAddMedia = onAddMedia,
                 onRemoveMedia = onRemoveMedia,
                 onUpdateMediaOrder = onUpdateMediaOrder,
@@ -168,46 +210,162 @@ fun OptionsScreenContent(
 }
 
 @Composable
-fun CategoryColorRow(
-    category: Category,
+fun ColorPickerDialog(
     allColors: List<AppColor>,
-    onColorSelected: (String) -> Unit
+    category: Category,
+    onDismiss: () -> Unit,
+    onColorSelected: (String) -> Unit,
+    onAddColor: (String, String) -> Unit,
+    onUpdateColor: (AppColor) -> Unit,
+    onUpdateColorsOrder: (List<AppColor>) -> Unit,
+    onToggleColorVisibility: (Long) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color(android.graphics.Color.parseColor(category.color)))
-            )
-            Spacer(Modifier.width(12.dp))
-            Text(category.name, style = MaterialTheme.typography.titleMedium)
-        }
-        
-        Spacer(Modifier.height(8.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            allColors.take(10).forEach { color -> // Limitiamo a 10 per riga
-                val isSelected = category.color.equals(color.hexValue, ignoreCase = true)
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(android.graphics.Color.parseColor(color.hexValue)))
-                        .border(
-                            width = if (isSelected) 3.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = CircleShape
-                        )
-                        .clickable { onColorSelected(color.hexValue) }
-                )
-            }
-        }
+    var showAddColorDialog by remember { mutableStateOf(false) }
+    var editingColor by remember { mutableStateOf<AppColor?>(null) }
+    var showHidden by remember { mutableStateOf(false) }
+    var colorListState by remember(allColors) { mutableStateOf(allColors) }
+
+    if (showAddColorDialog) {
+        AddColorDialog(
+            onDismiss = { showAddColorDialog = false },
+            onAddColor = onAddColor
+        )
     }
+    
+    editingColor?.let {
+        AddColorDialog(
+            color = it,
+            onDismiss = { editingColor = null },
+            onAddColor = { hex, name -> onUpdateColor(it.copy(hexValue = hex, name = name)) }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Gestione Colori") },
+        text = {
+            Column(Modifier.height(500.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Trascina per ordinare", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { showHidden = !showHidden }) {
+                        Icon(if (showHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                    }
+                }
+                DraggableLazyColumn(
+                    items = colorListState.filter { !it.hidden || showHidden },
+                    key = { _, color -> color.id },
+                    onMove = { from, to ->
+                        colorListState = colorListState.toMutableList().apply {
+                            add(to, removeAt(from))
+                        }
+                    },
+                    onDrop = {
+                        onUpdateColorsOrder(colorListState.mapIndexed { index, appColor -> appColor.copy(displayOrder = index) })
+                    },
+                    itemContent = { _, color ->
+                        ColorListItem(
+                            color = color,
+                            isSelected = category.color.equals(color.hexValue, ignoreCase = true),
+                            onColorSelected = { onColorSelected(color.hexValue) },
+                            onEdit = { editingColor = color },
+                            onToggleVisibility = { onToggleColorVisibility(color.id) }
+                        )
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = { showAddColorDialog = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Aggiungi Nuovo Colore")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Chiudi") }
+        }
+    )
+}
+
+@Composable
+fun ColorListItem(
+    color: AppColor,
+    isSelected: Boolean,
+    onColorSelected: () -> Unit,
+    onEdit: () -> Unit,
+    onToggleVisibility: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onColorSelected() }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(android.graphics.Color.parseColor(color.hexValue)))
+                .border(2.dp, if(isSelected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape)
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(color.name.ifEmpty { color.hexValue }, modifier = Modifier.weight(1f), color = if(color.hidden) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface)
+        IconButton(onClick = onToggleVisibility) {
+            Icon(if (color.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Toggle Visibility")
+        }
+        IconButton(onClick = onEdit) {
+            Icon(Icons.Default.Edit, contentDescription = "Edit Color")
+        }
+        Icon(Icons.Default.DragHandle, contentDescription = "Drag to Reorder")
+    }
+}
+
+@Composable
+fun AddColorDialog(onDismiss: () -> Unit, onAddColor: (String, String) -> Unit, color: AppColor? = null) {
+    var hex by remember { mutableStateOf(color?.hexValue ?: "#") }
+    var name by remember { mutableStateOf(color?.name ?: "") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (color == null) "Aggiungi un nuovo colore" else "Modifica colore") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = hex,
+                    onValueChange = { 
+                        if (it.startsWith("#") && it.length <= 7) hex = it
+                    },
+                    label = { Text("Codice Esadecimale (es. #RRGGBB)") },
+                    isError = error != null,
+                    enabled = color == null
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nome") }
+                )
+                if (error != null) {
+                    Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    try {
+                        Color(android.graphics.Color.parseColor(hex))
+                        onAddColor(hex, name)
+                        onDismiss()
+                    } catch (e: Exception) {
+                        error = "Codice colore non valido!"
+                    }
+                }
+            ) { Text(if (color == null) "Aggiungi" else "Salva") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annulla") }
+        }
+    )
 }
 
 @Composable
@@ -242,5 +400,155 @@ fun OptionsSectionCard(
             Spacer(modifier = Modifier.height(8.dp))
             content()
         }
+    }
+}
+
+@Composable
+fun <T : Any> DraggableLazyColumn(
+    modifier: Modifier = Modifier,
+    items: List<T>,
+    key: (index: Int, item: T) -> Any = { _, item -> item },
+    onMove: (from: Int, to: Int) -> Unit,
+    onDrop: () -> Unit,
+    itemContent: @Composable LazyItemScope.(index: Int, item: T) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val lazyListState = rememberLazyListState()
+    var overscrollJob by remember { mutableStateOf<Job?>(null) }
+
+    val dragDropState = remember(items) { DragDropState(onMove = onMove, onDrop = onDrop) }
+
+    LazyColumn(
+        modifier = modifier.pointerInput(Unit) {
+            detectDragGesturesAfterLongPress(
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    dragDropState.onDrag(dragAmount, lazyListState)
+
+                    if (overscrollJob?.isActive != true) {
+                        val overscroll = dragDropState.checkForOverscroll(lazyListState)
+                        if (overscroll != 0f) {
+                            overscrollJob = scope.launch {
+                                //lazyListState.scrollBy(overscroll)
+                            }
+                        } else {
+                            overscrollJob?.cancel()
+                        }
+                    }
+                },
+                onDragStart = { offset -> dragDropState.onDragStart(offset, lazyListState) },
+                onDragEnd = { dragDropState.onDragEnd() },
+                onDragCancel = { dragDropState.onDragEnd() }
+            )
+        },
+        state = lazyListState,
+        contentPadding = PaddingValues(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        itemsIndexed(items, key = key) { index, item ->
+            val offset by dragDropState.offsetOf(key(index, item))
+            val isDragging = dragDropState.isDragging(key(index, item))
+            Box(
+                modifier = Modifier
+                    .zIndex(if (isDragging) 1f else 0f)
+                    .graphicsLayer { translationY = offset }
+            ) {
+                itemContent(index, item)
+            }
+        }
+    }
+}
+
+class DragDropState(
+    private val onMove: (from: Int, to: Int) -> Unit,
+    private val onDrop: () -> Unit
+) {
+    var draggedDistance by mutableFloatStateOf(0f)
+        private set
+    var draggedItemKey by mutableStateOf<Any?>(null)
+        private set
+
+    private var currentIndexOfDraggedItem by mutableStateOf<Int?>(null)
+    private var initiallyDraggedElement by mutableStateOf<androidx.compose.foundation.lazy.LazyListItemInfo?>(null)
+
+    fun isDragging(itemKey: Any): Boolean = itemKey == draggedItemKey
+
+    fun offsetOf(itemKey: Any): State<Float> = derivedStateOf {
+        if (itemKey == draggedItemKey) {
+            draggedDistance
+        } else {
+            0f
+        }
+    }
+
+    fun onDragStart(offset: Offset, lazyListState: androidx.compose.foundation.lazy.LazyListState) {
+        lazyListState.layoutInfo.visibleItemsInfo
+            .firstOrNull { offset.y.toInt() in it.offset..(it.offset + it.size) }
+            ?.also {
+                currentIndexOfDraggedItem = it.index
+                initiallyDraggedElement = it
+                draggedItemKey = it.key
+            }
+    }
+
+    fun onDrag(dragAmount: Offset, lazyListState: androidx.compose.foundation.lazy.LazyListState) {
+        draggedDistance += dragAmount.y
+        val initial = initiallyDraggedElement ?: return
+        val currentDraggedIndex = currentIndexOfDraggedItem ?: return
+
+        val currentOffset = initial.offset + draggedDistance
+
+        val layoutInfo = lazyListState.layoutInfo
+        val visibleItemsMap = layoutInfo.visibleItemsInfo.associateBy { it.index }
+
+        val targetItem = when {
+            dragAmount.y > 0 -> (currentDraggedIndex + 1 until layoutInfo.totalItemsCount)
+                .asSequence()
+                .mapNotNull { visibleItemsMap[it] }
+                .firstOrNull { item -> currentOffset + initial.size > item.offset }
+
+            dragAmount.y < 0 -> (0 until currentDraggedIndex).reversed()
+                .asSequence()
+                .mapNotNull { visibleItemsMap[it] }
+                .firstOrNull { item -> currentOffset < item.offset + item.size }
+
+            else -> null
+        }
+
+        if (targetItem != null) {
+            val from = currentDraggedIndex
+            val to = targetItem.index
+            if (from != to) {
+                onMove(from, to)
+                val draggedItemSize = initiallyDraggedElement?.size ?: 0
+                draggedDistance += if (from < to) -draggedItemSize.toFloat() else draggedItemSize.toFloat()
+                initiallyDraggedElement = lazyListState.layoutInfo.visibleItemsInfo.find { it.index == to }
+                currentIndexOfDraggedItem = to
+            }
+        }
+    }
+
+    fun onDragEnd() {
+        onDrop()
+        reset()
+    }
+
+    fun checkForOverscroll(lazyListState: androidx.compose.foundation.lazy.LazyListState): Float {
+        val initial = initiallyDraggedElement ?: return 0f
+        val startOffset = initial.offset + draggedDistance
+        val endOffset = initial.offset + initial.size + draggedDistance
+
+        return when {
+            draggedDistance > 0 && endOffset > lazyListState.layoutInfo.viewportEndOffset -> draggedDistance * 0.05f
+            draggedDistance < 0 && startOffset < lazyListState.layoutInfo.viewportStartOffset -> draggedDistance * 0.05f
+            else -> 0f
+        }
+    }
+
+    private fun reset() {
+        draggedDistance = 0f
+        initiallyDraggedElement = null
+        currentIndexOfDraggedItem = null
+        draggedItemKey = null
     }
 }
