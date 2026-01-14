@@ -5,8 +5,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
@@ -18,24 +16,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.Equipment
+import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
 import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -164,167 +157,6 @@ fun EquipmentsScreenContent(
                 }
             )
         }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun <T : Any> DraggableLazyColumn(
-    modifier: Modifier = Modifier,
-    items: List<T>,
-    key: (index: Int, item: T) -> Any,
-    onMove: (from: Int, to: Int) -> Unit,
-    onDrop: () -> Unit,
-    itemContent: @Composable LazyItemScope.(index: Int, item: T) -> Unit,
-) {
-    val scope = rememberCoroutineScope()
-    val lazyListState = rememberLazyListState()
-    var overscrollJob by remember { mutableStateOf<Job?>(null) }
-
-    val spacing = 16.dp
-    val spacingInPx = with(LocalDensity.current) { spacing.toPx() }
-
-    val dragDropState = remember(spacingInPx) { DragDropState(onMove = onMove, onDrop = onDrop, spacing = spacingInPx) }
-
-    LazyColumn(
-        modifier = modifier.pointerInput(Unit) {
-            detectDragGesturesAfterLongPress(
-                onDrag = { change, dragAmount ->
-                    change.consume()
-                    dragDropState.onDrag(dragAmount, lazyListState)
-
-                    if (overscrollJob?.isActive != true) {
-                        val overscroll = dragDropState.checkForOverscroll(lazyListState)
-                        if (overscroll != 0f) {
-                            overscrollJob = scope.launch {
-                                lazyListState.scrollBy(overscroll)
-                            }
-                        } else {
-                            overscrollJob?.cancel()
-                        }
-                    }
-                },
-                onDragStart = { offset -> dragDropState.onDragStart(offset, lazyListState) },
-                onDragEnd = { dragDropState.onDragEnd() },
-                onDragCancel = { dragDropState.onDragEnd() }
-            )
-        },
-        state = lazyListState,
-        contentPadding = PaddingValues(8.dp),
-        verticalArrangement = Arrangement.spacedBy(spacing)
-    ) {
-        itemsIndexed(items, key) { index, item ->
-            val currentKey = key(index, item)
-            val isDragging = dragDropState.isDragging(currentKey)
-            val offset by dragDropState.offsetOf(currentKey)
-
-            Box(
-                modifier = Modifier
-                    .zIndex(if (isDragging) 1f else 0f)
-                    .graphicsLayer { translationY = offset }
-            ) {
-                itemContent(index, item)
-            }
-        }
-    }
-}
-
-private class DragDropState(
-    private val onMove: (from: Int, to: Int) -> Unit,
-    private val onDrop: () -> Unit,
-    private val spacing: Float
-) {
-    var draggedDistance by mutableFloatStateOf(0f)
-        private set
-    var draggedItemKey by mutableStateOf<Any?>(null)
-        private set
-
-    private var currentIndexOfDraggedItem by mutableStateOf<Int?>(null)
-    private var initiallyDraggedElement by mutableStateOf<LazyListItemInfo?>(null)
-
-    fun isDragging(itemKey: Any): Boolean = itemKey == draggedItemKey
-
-    fun offsetOf(itemKey: Any): State<Float> = derivedStateOf {
-        if (itemKey == draggedItemKey) {
-            draggedDistance
-        } else {
-            0f
-        }
-    }
-
-    fun onDragStart(offset: Offset, lazyListState: LazyListState) {
-        lazyListState.layoutInfo.visibleItemsInfo
-            .firstOrNull { offset.y.toInt() in it.offset..(it.offset + it.size) }
-            ?.also {
-                currentIndexOfDraggedItem = it.index
-                initiallyDraggedElement = it
-                draggedItemKey = it.key
-            }
-    }
-
-    fun onDrag(dragAmount: Offset, lazyListState: LazyListState) {
-        draggedDistance += dragAmount.y
-        val initial = initiallyDraggedElement ?: return
-        val currentDraggedIndex = currentIndexOfDraggedItem ?: return
-
-        val currentOffset = initial.offset + draggedDistance
-
-        val layoutInfo = lazyListState.layoutInfo
-        val visibleItemsMap = layoutInfo.visibleItemsInfo.associateBy { it.index }
-
-        val targetItem = when {
-            dragAmount.y > 0 -> (currentDraggedIndex + 1 until layoutInfo.totalItemsCount)
-                .asSequence()
-                .mapNotNull { visibleItemsMap[it] }
-                .firstOrNull { item -> currentOffset + initial.size > item.offset }
-
-            dragAmount.y < 0 -> (0 until currentDraggedIndex).reversed()
-                .asSequence()
-                .mapNotNull { visibleItemsMap[it] }
-                .firstOrNull { item -> currentOffset < item.offset + item.size }
-
-            else -> null
-        }
-
-        if (targetItem != null) {
-            val from = currentDraggedIndex
-            val to = targetItem.index
-            if (from != to) {
-                onMove(from, to)
-                val draggedItemSize = initiallyDraggedElement?.size ?: 0
-                draggedDistance += if (from < to) {
-                    -(draggedItemSize.toFloat() + spacing)
-                } else {
-                    (draggedItemSize.toFloat() + spacing)
-                }
-                initiallyDraggedElement = lazyListState.layoutInfo.visibleItemsInfo.find { it.index == to }
-                currentIndexOfDraggedItem = to
-            }
-        }
-    }
-
-    fun onDragEnd() {
-        onDrop()
-        reset()
-    }
-
-    fun checkForOverscroll(lazyListState: LazyListState): Float {
-        val initial = initiallyDraggedElement ?: return 0f
-        val startOffset = initial.offset + draggedDistance
-        val endOffset = initial.offset + initial.size + draggedDistance
-
-        return when {
-            draggedDistance > 0 && endOffset > lazyListState.layoutInfo.viewportEndOffset -> draggedDistance * 0.05f
-            draggedDistance < 0 && startOffset < lazyListState.layoutInfo.viewportStartOffset -> draggedDistance * 0.05f
-            else -> 0f
-        }
-    }
-
-    private fun reset() {
-        draggedDistance = 0f
-        initiallyDraggedElement = null
-        currentIndexOfDraggedItem = null
-        draggedItemKey = null
     }
 }
 
