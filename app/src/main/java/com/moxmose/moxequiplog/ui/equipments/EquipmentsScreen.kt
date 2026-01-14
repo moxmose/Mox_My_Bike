@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,11 +82,7 @@ fun EquipmentsScreenContent(
     onToggleMediaVisibility: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var equipmentsState by remember(equipments) { mutableStateOf(equipments) }
-
-    LaunchedEffect(equipments) {
-        equipmentsState = equipments
-    }
+    val equipmentsState = remember(equipments) { equipments.toMutableStateList() }
 
     Scaffold(
         modifier = modifier,
@@ -134,9 +131,7 @@ fun EquipmentsScreenContent(
                 items = equipmentsState,
                 key = { _, equipment -> equipment.id },
                 onMove = { from, to ->
-                    equipmentsState = equipmentsState.toMutableList().apply {
-                        add(to, removeAt(from))
-                    }
+                    equipmentsState.add(to, equipmentsState.removeAt(from))
                 },
                 onDrop = {
                     val reorderedEquipments = equipmentsState.mapIndexed { index, equipment ->

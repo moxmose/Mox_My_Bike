@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -216,13 +218,17 @@ fun ColorPickerDialog(
     var showAddColorDialog by remember { mutableStateOf(false) }
     var editingColor by remember { mutableStateOf<AppColor?>(null) }
     var showHidden by remember { mutableStateOf(false) }
-    var colorListState by remember(allColors) { mutableStateOf(allColors) }
+    val reorderableColors = remember(allColors, showHidden) {
+        allColors.filter { !it.hidden || showHidden }.toMutableStateList()
+    }
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(showHidden) {
         scope.launch {
-            lazyListState.scrollToItem(0)
+            if (reorderableColors.isNotEmpty()) {
+                lazyListState.scrollToItem(0)
+            }
         }
     }
 
@@ -253,16 +259,15 @@ fun ColorPickerDialog(
                     }
                 }
                 DraggableLazyColumn(
-                    state = lazyListState,
-                    items = colorListState.filter { !it.hidden || showHidden },
+                    items = reorderableColors,
                     key = { _, color -> color.id },
                     onMove = { from, to ->
-                        colorListState = colorListState.toMutableList().apply {
-                            add(to, removeAt(from))
-                        }
+                        reorderableColors.add(to, reorderableColors.removeAt(from))
                     },
                     onDrop = {
-                        onUpdateColorsOrder(colorListState.mapIndexed { index, appColor -> appColor.copy(displayOrder = index) })
+                        val hiddenColors = allColors.filter { it.hidden && !showHidden }
+                        val fullNewList = reorderableColors + hiddenColors
+                        onUpdateColorsOrder(fullNewList.mapIndexed { index, appColor -> appColor.copy(displayOrder = index) })
                     },
                     itemContent = { _, color ->
                         ColorListItem(
