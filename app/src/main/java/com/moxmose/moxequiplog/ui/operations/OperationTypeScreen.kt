@@ -40,6 +40,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -142,7 +143,11 @@ fun OperationTypeScreenContent(
             )
         }
 
-        Column(Modifier.padding(paddingValues)) {
+        Column(
+            Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+        ) {
             Text(
                 text = stringResource(R.string.hold_and_drag_to_reorder),
                 modifier = Modifier
@@ -165,7 +170,7 @@ fun OperationTypeScreenContent(
                     }
                     onUpdateOperationTypes(reorderedTypes)
                 },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f),
                 itemContent = { _, operationType ->
                     OperationTypeCard(
                         operationType = operationType,
@@ -395,14 +400,26 @@ fun OperationTypeCard(
             }
             Spacer(modifier = Modifier.width(8.dp))
             if (isEditing) {
-                OutlinedTextField(
-                    value = editedDescription,
-                    onValueChange = { if (it.length <= 50) editedDescription = it },
-                    label = { Text(stringResource(R.string.operation_type_description)) },
-                    placeholder = { Text("id:${operationType.id} - no description") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = editedDescription,
+                        onValueChange = { if (it.length <= 50) editedDescription = it },
+                        label = { Text(stringResource(R.string.operation_type_description)) },
+                        placeholder = { Text("id:${operationType.id} - no description") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Attiva", modifier = Modifier.weight(1f))
+                        Switch(checked = !operationType.dismissed, onCheckedChange = { 
+                            if (operationType.dismissed) {
+                                onRestoreOperationType(operationType)
+                            } else {
+                                onDismissOperationType(operationType)
+                            }
+                        })
+                    }
+                }
             } else {
                 Text(
                     text = if (editedDescription.isNotBlank()) editedDescription else "id:${operationType.id} - no description",
@@ -416,22 +433,6 @@ fun OperationTypeCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isEditing) {
-                    IconButton(
-                        onClick = { 
-                            if (operationType.dismissed) {
-                                onRestoreOperationType(operationType)
-                            } else {
-                                onDismissOperationType(operationType)
-                            }
-                         }
-                    ) {
-                        Icon(
-                            imageVector = if (operationType.dismissed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (operationType.dismissed) stringResource(R.string.restore_operation_type) else stringResource(R.string.dismiss_operation_type)
-                        )
-                    }
-                }
                 IconButton(
                     onClick = {
                         if (isEditing) {
