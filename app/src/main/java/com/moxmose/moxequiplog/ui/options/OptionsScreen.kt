@@ -1,19 +1,16 @@
 package com.moxmose.moxequiplog.ui.options
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,7 +28,9 @@ import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
+import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
 import com.moxmose.moxequiplog.ui.equipments.EquipmentMediaSelector
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -58,7 +57,6 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
         onToggleMediaVisibility = viewModel::toggleMediaVisibility,
         onUpdateCategoryColor = { catId, hex ->
             viewModel.updateCategoryColor(catId, hex)
-            showColorPicker = null
         },
         isPhotoUsed = { viewModel.isPhotoUsed(it) },
         showAboutDialog = showAboutDialog,
@@ -109,6 +107,20 @@ fun OptionsScreenContent(
         )
     }
 
+    showColorPicker?.let { categoryId ->
+        val category = allCategories.find { it.id == categoryId }!!
+        ColorManagementDialog(
+            allColors = allColors,
+            category = category,
+            onDismiss = { onShowColorPickerChange(null) },
+            onColorSelected = { onUpdateCategoryColor(category.id, it) },
+            onAddColor = onAddColor,
+            onUpdateColor = onUpdateColor,
+            onUpdateColorsOrder = onUpdateColorsOrder,
+            onToggleColorVisibility = onToggleColorVisibility
+        )
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -148,19 +160,7 @@ fun OptionsScreenContent(
                             .clip(CircleShape)
                             .background(Color(android.graphics.Color.parseColor(category.color)))
                             .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            .clickable { onShowColorPickerChange(if (showColorPicker == category.id) null else category.id) }
-                    )
-                }
-                if (showColorPicker == category.id) {
-                    ColorPicker(
-                        allColors = allColors,
-                        category = category,
-                        onColorSelected = { onUpdateCategoryColor(category.id, it) },
-                        onAddColor = onAddColor,
-                        onUpdateColor = onUpdateColor,
-                        onUpdateColorsOrder = onUpdateColorsOrder,
-                        onToggleColorVisibility = onToggleColorVisibility,
-                        onDismiss = { onShowColorPickerChange(null) }
+                            .clickable { onShowColorPickerChange(category.id) }
                     )
                 }
                 if (category != allCategories.last()) Divider(Modifier.padding(vertical = 12.dp))
@@ -199,8 +199,9 @@ fun OptionsScreenContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ColorPicker(
+fun ColorManagementDialog(
     allColors: List<AppColor>,
     category: Category,
     onDismiss: () -> Unit,
@@ -211,9 +212,11 @@ fun ColorPicker(
     onToggleColorVisibility: (Long) -> Unit
 ) {
     var showAddColorDialog by remember { mutableStateOf(false) }
-    var editingColor by remember { mutableStateOf<AppColor?>(null) }
     var showHidden by remember { mutableStateOf(false) }
-    val reorderableColors = remember(allColors, showHidden) {
+    val scope = rememberCoroutineScope()
+    val lazyListState = rememberLazyListState()
+
+    val colorsState = remember(allColors, showHidden) {
         allColors.filter { !it.hidden || showHidden }.toMutableStateList()
     }
 
@@ -224,87 +227,143 @@ fun ColorPicker(
         )
     }
 
-    editingColor?.let {
-        AddColorDialog(
-            color = it,
-            onDismiss = { editingColor = null },
-            onAddColor = { hex, name -> onUpdateColor(it.copy(hexValue = hex, name = name)) },
-            onToggleVisibility = { onToggleColorVisibility(it.id) }
-        )
-    }
-
-    Column(modifier = Modifier.padding(top = 16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Trascina per ordinare", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-            IconButton(onClick = { showHidden = !showHidden }) {
-                Icon(if (showHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+    ) {
+        Scaffold(
+            floatingActionButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    FloatingActionButton(onClick = { showAddColorDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Aggiungi colore")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    FloatingActionButton(
+                        onClick = { 
+                            showHidden = !showHidden
+                            scope.launch { lazyListState.animateScrollToItem(0) }
+                         },
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ) {
+                        Icon(if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = "Mostra/Nascondi")
+                    }
+                }
             }
-        }
-        LazyColumn(
-            modifier = Modifier.heightIn(max = 200.dp)
-        ) {
-            items(reorderableColors, key = { it.id }) { color ->
-                ColorListItem(
-                    color = color,
-                    isSelected = category.color.equals(color.hexValue, ignoreCase = true),
-                    onColorSelected = { onColorSelected(color.hexValue) },
-                    onEdit = { editingColor = color },
+        ) { padding ->
+            Column(Modifier.padding(padding)) {
+                Text(
+                    text = "Gestione Colori",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    textAlign = TextAlign.Center
+                )
+                DraggableLazyColumn(
+                    items = colorsState,
+                    key = { _, color -> color.id },
+                    onMove = { from, to -> colorsState.add(to, colorsState.removeAt(from)) },
+                    onDrop = {
+                        val hiddenColors = allColors.filter { it.hidden && !showHidden }
+                        val fullNewList = colorsState + hiddenColors
+                        onUpdateColorsOrder(fullNewList.mapIndexed { index, appColor -> appColor.copy(displayOrder = index) })
+                    },
+                    itemContent = { _, color ->
+                        ColorItemCard(
+                            color = color,
+                            isSelected = category.color.equals(color.hexValue, ignoreCase = true),
+                            onColorSelected = { 
+                                onColorSelected(color.hexValue)
+                                onDismiss()
+                            },
+                            onUpdateColor = onUpdateColor,
+                            onToggleVisibility = { onToggleColorVisibility(color.id) }
+                        )
+                    }
                 )
             }
-        }
-        Spacer(Modifier.height(8.dp))
-         Button(onClick = { showAddColorDialog = true }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Aggiungi Nuovo Colore")
         }
     }
 }
 
 @Composable
-fun ColorListItem(
+fun ColorItemCard(
     color: AppColor,
     isSelected: Boolean,
     onColorSelected: () -> Unit,
-    onEdit: () -> Unit,
-    modifier: Modifier = Modifier
+    onUpdateColor: (AppColor) -> Unit,
+    onToggleVisibility: () -> Unit
 ) {
-    Row(
-        modifier = modifier
+    var isEditing by remember { mutableStateOf(false) }
+    var editedName by remember(color.name) { mutableStateOf(color.name) }
+
+    Card(
+        modifier = Modifier
             .fillMaxWidth()
             .clickable { onColorSelected() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color(android.graphics.Color.parseColor(color.hexValue)))
-                .border(2.dp, if(isSelected) MaterialTheme.colorScheme.primary else Color.Transparent, CircleShape)
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(color.name.ifEmpty { color.hexValue }, modifier = Modifier.weight(1f), color = if(color.hidden) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface)
-        IconButton(onClick = onEdit) {
-            Icon(Icons.Default.Edit, contentDescription = "Edit Color")
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(android.graphics.Color.parseColor(color.hexValue)))
+                    .border(
+                        2.dp,
+                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        CircleShape
+                    )
+            )
+            Spacer(Modifier.width(16.dp))
+            if (isEditing) {
+                OutlinedTextField(
+                    value = editedName,
+                    onValueChange = { editedName = it },
+                    label = { Text("Nome Colore") },
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                Text(
+                    text = color.name.ifEmpty { color.hexValue },
+                    modifier = Modifier.weight(1f),
+                    color = if (color.hidden) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.End) {
+                if (isEditing) {
+                    IconButton(onClick = onToggleVisibility) {
+                        Icon(if (color.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Visibilità")
+                    }
+                }
+                IconButton(onClick = {
+                    if (isEditing) onUpdateColor(color.copy(name = editedName))
+                    isEditing = !isEditing
+                }) {
+                    Icon(if (isEditing) Icons.Default.Done else Icons.Default.Edit, contentDescription = "Modifica")
+                }
+                Icon(Icons.Default.DragHandle, contentDescription = "Trascina")
+            }
         }
     }
 }
 
 @Composable
 fun AddColorDialog(
-    onDismiss: () -> Unit, 
-    onAddColor: (String, String) -> Unit, 
-    color: AppColor? = null,
-    onToggleVisibility: (() -> Unit)? = null
+    onDismiss: () -> Unit,
+    onAddColor: (String, String) -> Unit,
 ) {
-    var hex by remember { mutableStateOf(color?.hexValue ?: "#") }
-    var name by remember { mutableStateOf(color?.name ?: "") }
+    var hex by remember { mutableStateOf("#") }
+    var name by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (color == null) "Aggiungi un nuovo colore" else "Modifica colore") },
+        title = { Text("Aggiungi un nuovo colore") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -314,7 +373,6 @@ fun AddColorDialog(
                     },
                     label = { Text("Codice Esadecimale (es. #RRGGBB)") },
                     isError = error != null,
-                    enabled = color == null
                 )
                 OutlinedTextField(
                     value = name,
@@ -323,12 +381,6 @@ fun AddColorDialog(
                 )
                 if (error != null) {
                     Text(error!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-                if (color != null && onToggleVisibility != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Colore visibile", modifier = Modifier.weight(1f))
-                        Switch(checked = !color.hidden, onCheckedChange = { onToggleVisibility() })
-                    }
                 }
             }
         },
@@ -343,7 +395,7 @@ fun AddColorDialog(
                         error = "Codice colore non valido!"
                     }
                 }
-            ) { Text(if (color == null) "Aggiungi" else "Salva") }
+            ) { Text("Aggiungi") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Annulla") }

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -36,43 +35,42 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+//import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.OperationType
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 
 @Composable
 fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
     val activeOperationTypes by viewModel.activeOperationTypes.collectAsState()
     val allOperationTypes by viewModel.allOperationTypes.collectAsState()
+
     var showDismissed by rememberSaveable { mutableStateOf(false) }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -107,11 +105,7 @@ fun OperationTypeScreenContent(
     onRestoreOperationType: (OperationType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var operationTypesState by remember(operationTypes) { mutableStateOf(operationTypes) }
-
-    LaunchedEffect(operationTypes) {
-        operationTypesState = operationTypes
-    }
+    val operationTypesState = remember(operationTypes) { operationTypes.toMutableStateList() }
 
     Scaffold(
         modifier = modifier,
@@ -160,9 +154,7 @@ fun OperationTypeScreenContent(
                 items = operationTypesState,
                 key = { _, operationType -> operationType.id },
                 onMove = { from, to ->
-                    operationTypesState = operationTypesState.toMutableList().apply {
-                        add(to, removeAt(from))
-                    }
+                    operationTypesState.add(to, operationTypesState.removeAt(from))
                 },
                 onDrop = {
                     val reorderedTypes = operationTypesState.mapIndexed { index, type ->
@@ -170,7 +162,7 @@ fun OperationTypeScreenContent(
                     }
                     onUpdateOperationTypes(reorderedTypes)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 itemContent = { _, operationType ->
                     OperationTypeCard(
                         operationType = operationType,
@@ -225,7 +217,6 @@ fun AddOperationTypeDialog(onDismissRequest: () -> Unit, onConfirm: (String, Str
                     label = { Text(stringResource(R.string.operation_type_description)) },
                     singleLine = true
                 )
-                Spacer(modifier = Modifier.padding(4.dp))
 
                 Box(
                     contentAlignment = Alignment.Center,
@@ -352,101 +343,99 @@ fun OperationTypeCard(
             .animateContentSize()
             .graphicsLayer(alpha = cardAlpha),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
-                    .clickable {
-                        if (isEditing) {
-                            imagePickerLauncher.launch(arrayOf("image/*"))
-                        } else {
-                            if (operationType.photoUri != null) {
-                                showFullImageDialog = operationType.photoUri
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
+                        .clickable {
+                            if (isEditing) {
+                                imagePickerLauncher.launch(arrayOf("image/*"))
                             } else {
-                                showNoPictureDialog = true
+                                if (operationType.photoUri != null) {
+                                    showFullImageDialog = operationType.photoUri
+                                } else {
+                                    showNoPictureDialog = true
+                                }
                             }
                         }
-                    }
-            ) {
-                if (operationType.photoUri != null) {
-                    AsyncImage(
-                        model = imageRequest,
-                        contentDescription = stringResource(R.string.operation_type_photo),
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = placeholderPainter,
-                        error = placeholderPainter
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.secondaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Build, // Default icon
+                ) {
+                    if (operationType.photoUri != null) {
+                        AsyncImage(
+                            model = imageRequest,
                             contentDescription = stringResource(R.string.operation_type_photo),
-                            modifier = Modifier.size(36.dp), // 10% smaller
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            placeholder = placeholderPainter,
+                            error = placeholderPainter
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = stringResource(R.string.operation_type_photo),
+                            modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
                 }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            if (isEditing) {
-                Column(modifier = Modifier.weight(1f)) {
+                Spacer(modifier = Modifier.padding(8.dp))
+
+                if (isEditing) {
                     OutlinedTextField(
                         value = editedDescription,
                         onValueChange = { if (it.length <= 50) editedDescription = it },
                         label = { Text(stringResource(R.string.operation_type_description)) },
-                        placeholder = { Text("id:${operationType.id} - no description") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1f),
                         singleLine = true
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Attiva", modifier = Modifier.weight(1f))
-                        Switch(checked = !operationType.dismissed, onCheckedChange = { 
-                            if (operationType.dismissed) {
-                                onRestoreOperationType(operationType)
-                            } else {
-                                onDismissOperationType(operationType)
-                            }
-                        })
-                    }
-                }
-            } else {
-                Text(
-                    text = if (editedDescription.isNotBlank()) editedDescription else "id:${operationType.id} - no description",
-                    color = if (editedDescription.isNotBlank()) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        if (isEditing) {
-                            onUpdateOperationType(operationType.copy(description = editedDescription))
-                        }
-                        isEditing = !isEditing
-                    }
-                ) {
-                    Icon(
-                        imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
-                        contentDescription = if (isEditing) stringResource(R.string.save_operation_type) else stringResource(R.string.edit_operation_type)
+                } else {
+                    Text(
+                        text = if (editedDescription.isNotBlank()) editedDescription else "id:${operationType.id} - no description",
+                        color = if (editedDescription.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-                IconButton(onClick = {}) {
+
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isEditing) {
+                        IconButton(
+                            onClick = {
+                                if (operationType.dismissed) {
+                                    onRestoreOperationType(operationType)
+                                } else {
+                                    onDismissOperationType(operationType)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (operationType.dismissed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (operationType.dismissed) stringResource(R.string.restore_operation_type) else stringResource(R.string.dismiss_operation_type)
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = {
+                            if (isEditing) {
+                                onUpdateOperationType(operationType.copy(description = editedDescription))
+                            }
+                            isEditing = !isEditing
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
+                            contentDescription = if (isEditing) stringResource(R.string.save_operation_type) else stringResource(R.string.edit_operation_type)
+                        )
+                    }
                     Icon(
                         imageVector = Icons.Filled.DragHandle,
                         contentDescription = stringResource(R.string.drag_to_reorder)

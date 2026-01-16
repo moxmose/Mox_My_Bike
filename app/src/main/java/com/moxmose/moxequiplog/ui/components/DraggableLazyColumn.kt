@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
-import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,14 +46,17 @@ fun <T : Any> DraggableLazyColumn(
     var overscrollJob by remember { mutableStateOf<Job?>(null) }
 
     val spacing = 16.dp
-    val spacingInPx = with(LocalDensity.current) { spacing.toPx() }
+    val spacingPx = with(LocalDensity.current) { spacing.toPx() }
 
-    val dragDropState = remember { DragDropState(spacing = spacingInPx) }
+    val dragDropState = remember { DragDropState(spacingPx) }
     dragDropState.onMove = onMove
     dragDropState.onDrop = onDrop
+    dragDropState.lazyListState = lazyListState
 
     LaunchedEffect(items) {
-        dragDropState.reset()
+        if (dragDropState.isDragging) {
+            dragDropState.reset()
+        }
     }
 
     LazyColumn(
@@ -62,20 +64,13 @@ fun <T : Any> DraggableLazyColumn(
             detectDragGesturesAfterLongPress(
                 onDrag = { change, dragAmount ->
                     change.consume()
-                    dragDropState.onDrag(dragAmount, lazyListState)
+                    dragDropState.onDrag(dragAmount)
 
                     if (overscrollJob?.isActive != true) {
-                        val overscroll = dragDropState.checkForOverscroll(lazyListState)
-                        if (overscroll != 0f) {
-                            overscrollJob = scope.launch {
-                                lazyListState.scrollBy(overscroll)
-                            }
-                        } else {
-                            overscrollJob?.cancel()
-                        }
+                        overscrollJob = dragDropState.checkForOverscroll(scope, dragAmount)
                     }
                 },
-                onDragStart = { offset -> dragDropState.onDragStart(offset, lazyListState) },
+                onDragStart = { offset -> dragDropState.onDragStart(offset) },
                 onDragEnd = { dragDropState.onDragEnd() },
                 onDragCancel = { dragDropState.onDragEnd() }
             )
@@ -84,15 +79,15 @@ fun <T : Any> DraggableLazyColumn(
         contentPadding = PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(spacing)
     ) {
-        itemsIndexed(items, key) { index, item ->
+        itemsIndexed(items, key = key) { index, item ->
             val currentKey = key(index, item)
             val isDragging = dragDropState.isDragging(currentKey)
             val offset by dragDropState.offsetOf(currentKey)
 
             Box(
                 modifier = Modifier
-                    .zIndex(if (isDragging) 1f else 0f)
                     .graphicsLayer { translationY = offset }
+                    .zIndex(if (isDragging) 1f else 0f)
             ) {
                 itemContent(index, item)
             }
@@ -100,76 +95,77 @@ fun <T : Any> DraggableLazyColumn(
     }
 }
 
-private class DragDropState(
-    private val spacing: Float
-) {
+private class DragDropState(private val spacing: Float) {
     var onMove: (from: Int, to: Int) -> Unit = { _, _ -> }
     var onDrop: () -> Unit = {}
+    lateinit var lazyListState: LazyListState
 
     var draggedDistance by mutableFloatStateOf(0f)
         private set
     var draggedItemKey by mutableStateOf<Any?>(null)
         private set
 
+    val isDragging: Boolean get() = draggedItemKey != null
+
     private var currentIndexOfDraggedItem by mutableStateOf<Int?>(null)
-    private var initiallyDraggedElement by mutableStateOf<LazyListItemInfo?>(null)
+
+    // Offset di "ancoraggio" che viene aggiornato dopo ogni swap.
+    private var dragAnchorOffset by mutableFloatStateOf(0f)
+
+    private var initialDragOffsetInElement by mutableFloatStateOf(0f)
 
     fun isDragging(itemKey: Any): Boolean = itemKey == draggedItemKey
 
     fun offsetOf(itemKey: Any): State<Float> = derivedStateOf {
-        if (itemKey == draggedItemKey) {
-            draggedDistance
-        } else {
-            0f
-        }
+        if (itemKey != draggedItemKey) 0f else draggedDistance
     }
 
-    fun onDragStart(offset: Offset, lazyListState: LazyListState) {
+    fun onDragStart(offset: Offset) {
         lazyListState.layoutInfo.visibleItemsInfo
             .firstOrNull { offset.y.toInt() in it.offset..(it.offset + it.size) }
             ?.also {
                 currentIndexOfDraggedItem = it.index
-                initiallyDraggedElement = it
                 draggedItemKey = it.key
+                initialDragOffsetInElement = offset.y - it.offset
+                dragAnchorOffset = it.offset.toFloat() // Imposta l'ancoraggio iniziale
+                draggedDistance = 0f
             }
     }
 
-    fun onDrag(dragAmount: Offset, lazyListState: LazyListState) {
+    fun onDrag(dragAmount: Offset) {
         draggedDistance += dragAmount.y
-        val initial = initiallyDraggedElement ?: return
+
         val currentDraggedIndex = currentIndexOfDraggedItem ?: return
 
-        val currentOffset = initial.offset + draggedDistance
+        // Posizione del dito calcolata usando l'ancoraggio aggiornato
+        val absoluteFingerY = dragAnchorOffset + draggedDistance + initialDragOffsetInElement
 
-        val layoutInfo = lazyListState.layoutInfo
-        val visibleItemsMap = layoutInfo.visibleItemsInfo.associateBy { it.index }
-
-        val targetItem = when {
-            dragAmount.y > 0 -> (currentDraggedIndex + 1 until layoutInfo.totalItemsCount)
-                .asSequence()
-                .mapNotNull { visibleItemsMap[it] }
-                .firstOrNull { item -> currentOffset + initial.size > item.offset }
-
-            dragAmount.y < 0 -> (0 until currentDraggedIndex).reversed()
-                .asSequence()
-                .mapNotNull { visibleItemsMap[it] }
-                .firstOrNull { item -> currentOffset < item.offset + item.size }
-
-            else -> null
+        val targetItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+            if (item.index == currentDraggedIndex) return@firstOrNull false
+            when {
+                dragAmount.y > 0 && item.index > currentDraggedIndex ->
+                    absoluteFingerY > item.offset + item.size / 2
+                dragAmount.y < 0 && item.index < currentDraggedIndex ->
+                    absoluteFingerY < item.offset + item.size / 2
+                else -> false
+            }
         }
 
         if (targetItem != null) {
             val from = currentDraggedIndex
             val to = targetItem.index
             if (from != to) {
+                // Calcola il delta per la compensazione e per aggiornare l'ancoraggio
+                val diff = if (from < to) (targetItem.size + spacing) else -(targetItem.size + spacing)
+
+                // Compensa la distanza di trascinamento per evitare il salto
+                draggedDistance -= diff
+
+                // AGGIORNA L'ANCORAGGIO per il calcolo successivo
+                dragAnchorOffset += diff
+
+                // Esegui lo spostamento
                 onMove(from, to)
-                val draggedItemSize = initiallyDraggedElement?.size ?: 0
-                draggedDistance += if (from < to) {
-                    -(draggedItemSize.toFloat() + spacing)
-                } else {
-                    (draggedItemSize.toFloat() + spacing)
-                }
-                initiallyDraggedElement = lazyListState.layoutInfo.visibleItemsInfo.find { it.index == to }
                 currentIndexOfDraggedItem = to
             }
         }
@@ -180,22 +176,32 @@ private class DragDropState(
         reset()
     }
 
-    fun checkForOverscroll(lazyListState: LazyListState): Float {
-        val initial = initiallyDraggedElement ?: return 0f
-        val startOffset = initial.offset + draggedDistance
-        val endOffset = initial.offset + initial.size + draggedDistance
+    fun checkForOverscroll(scope: kotlinx.coroutines.CoroutineScope, dragAmount: Offset): Job? {
+        val currentElementInfo = lazyListState.layoutInfo.visibleItemsInfo.find { it.key == draggedItemKey } ?: return null
+        val itemSize = currentElementInfo.size
 
-        return when {
-            draggedDistance > 0 && endOffset > lazyListState.layoutInfo.viewportEndOffset -> draggedDistance * 0.05f
-            draggedDistance < 0 && startOffset < lazyListState.layoutInfo.viewportStartOffset -> draggedDistance * 0.05f
+        val itemTranslateY = draggedDistance
+        val startOffset = currentElementInfo.offset + itemTranslateY
+        val endOffset = startOffset + itemSize
+
+        val overscrollAmount = when {
+            dragAmount.y > 0 && endOffset > lazyListState.layoutInfo.viewportEndOffset - 100 ->
+                dragAmount.y * 0.2f
+            dragAmount.y < 0 && startOffset < lazyListState.layoutInfo.viewportStartOffset + 100 ->
+                dragAmount.y * 0.2f
             else -> 0f
         }
+
+        return if (overscrollAmount != 0f) {
+            scope.launch { lazyListState.scrollBy(overscrollAmount) }
+        } else null
     }
 
     fun reset() {
         draggedDistance = 0f
-        initiallyDraggedElement = null
-        currentIndexOfDraggedItem = null
         draggedItemKey = null
+        currentIndexOfDraggedItem = null
+        initialDragOffsetInElement = 0f
+        dragAnchorOffset = 0f
     }
 }
