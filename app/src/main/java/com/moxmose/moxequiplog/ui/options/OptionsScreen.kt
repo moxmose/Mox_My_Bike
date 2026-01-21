@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -293,11 +294,13 @@ fun ColorItemCard(
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var editedName by remember(color.name) { mutableStateOf(color.name) }
+    val cardAlpha = if (color.hidden) 0.5f else 1f
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onColorSelected() }
+            .graphicsLayer(alpha = cardAlpha)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -328,13 +331,15 @@ fun ColorItemCard(
                 Text(
                     text = color.name.ifEmpty { color.hexValue },
                     modifier = Modifier.weight(1f),
-                    color = if (color.hidden) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.End) {
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (isEditing) {
                     IconButton(onClick = onToggleVisibility) {
                         Icon(if (color.hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = "Visibilità")
@@ -346,7 +351,9 @@ fun ColorItemCard(
                 }) {
                     Icon(if (isEditing) Icons.Default.Done else Icons.Default.Edit, contentDescription = "Modifica")
                 }
-                Icon(Icons.Default.DragHandle, contentDescription = "Trascina")
+                IconButton(onClick = { /* Drag is handled by the parent */ }) {
+                    Icon(Icons.Default.DragHandle, contentDescription = "Trascina")
+                }
             }
         }
     }

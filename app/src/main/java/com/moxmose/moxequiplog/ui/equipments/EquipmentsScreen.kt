@@ -5,18 +5,51 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -30,20 +63,23 @@ import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.Equipment
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
 import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
+import com.moxmose.moxequiplog.ui.options.OptionsViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
+fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel(), optionsViewModel: OptionsViewModel = koinViewModel()) {
     val activeEquipments by viewModel.activeEquipments.collectAsState()
     val allEquipments by viewModel.allEquipments.collectAsState()
     val equipmentMedia by viewModel.equipmentMedia.collectAsState()
     val favoriteIcon by viewModel.favoriteIcon.collectAsState()
     val favoritePhotoUri by viewModel.favoritePhotoUri.collectAsState()
-    
+    val allCategories by optionsViewModel.allCategories.collectAsState()
+
     var showDismissed by rememberSaveable { mutableStateOf(false) }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
-    
+
     val equipmentsToShow = if (showDismissed) allEquipments else activeEquipments
+    val equipmentCategoryColor = allCategories.find { it.id == "EQUIPMENT" }?.color
 
     EquipmentsScreenContent(
         equipments = equipmentsToShow,
@@ -59,11 +95,12 @@ fun EquipmentsScreen(viewModel: EquipmentsViewModel = koinViewModel()) {
         onToggleShowDismissed = { showDismissed = !showDismissed },
         showAddDialog = showAddDialog,
         onShowAddDialogChange = { showAddDialog = it },
-        onToggleMediaVisibility = viewModel::toggleMediaVisibility
+        onToggleMediaVisibility = viewModel::toggleMediaVisibility,
+        equipmentCategoryColor = equipmentCategoryColor
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EquipmentsScreenContent(
     equipments: List<Equipment>,
@@ -80,6 +117,7 @@ fun EquipmentsScreenContent(
     onDismissEquipment: (Equipment) -> Unit,
     onRestoreEquipment: (Equipment) -> Unit,
     onToggleMediaVisibility: (String, String) -> Unit,
+    equipmentCategoryColor: String?,
     modifier: Modifier = Modifier
 ) {
     val equipmentsState = remember(equipments) { equipments.toMutableStateList() }
@@ -147,7 +185,8 @@ fun EquipmentsScreenContent(
                         onUpdateEquipment = onUpdateEquipment,
                         onDismissEquipment = onDismissEquipment,
                         onRestoreEquipment = onRestoreEquipment,
-                        onToggleMediaVisibility = onToggleMediaVisibility
+                        onToggleMediaVisibility = onToggleMediaVisibility,
+                        equipmentCategoryColor = equipmentCategoryColor
                     )
                 }
             )
@@ -247,6 +286,7 @@ fun EquipmentCard(
     onDismissEquipment: (Equipment) -> Unit,
     onRestoreEquipment: (Equipment) -> Unit,
     onToggleMediaVisibility: (String, String) -> Unit,
+    equipmentCategoryColor: String?,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -254,6 +294,7 @@ fun EquipmentCard(
     val context = LocalContext.current
     var showFullImageDialog by remember { mutableStateOf<String?>(null) }
     var showNoPictureDialog by remember { mutableStateOf(false) }
+    var showMediaSelectorDialog by remember { mutableStateOf(false) }
 
     val cardAlpha = if (equipment.dismissed) 0.5f else 1f
 
@@ -270,6 +311,28 @@ fun EquipmentCard(
         )
     }
 
+    if (showMediaSelectorDialog) {
+        MediaPickerDialog(
+            onDismissRequest = { showMediaSelectorDialog = false },
+            photoUri = equipment.photoUri,
+            iconIdentifier = equipment.iconIdentifier,
+            onMediaSelected = { (iconId, photoUri) ->
+                onUpdateEquipment(equipment.copy(iconIdentifier = iconId, photoUri = photoUri))
+                showMediaSelectorDialog = false
+            },
+            mediaLibrary = equipmentMedia,
+            categories = emptyList(), // non necessario qui
+            onAddMedia = null,
+            onRemoveMedia = null,
+            onUpdateMediaOrder = null,
+            onToggleMediaVisibility = onToggleMediaVisibility,
+            onSetDefaultInCategory = null,
+            isPhotoUsed = null,
+            isPrefsMode = false,
+            forcedCategory = "EQUIPMENT"
+        )
+    }
+
     showFullImageDialog?.let { uri ->
         FullImageDialog(photoUri = uri, onDismiss = { showFullImageDialog = null })
     }
@@ -278,6 +341,16 @@ fun EquipmentCard(
         .data(equipment.photoUri)
         .crossfade(true)
         .build()
+
+    val equipmentBorderColor = if (isEditing) {
+        equipmentCategoryColor?.let {
+            try {
+                Color(android.graphics.Color.parseColor(it))
+            } catch (e: Exception) {
+                MaterialTheme.colorScheme.primary
+            }
+        } ?: MaterialTheme.colorScheme.primary
+    } else Color.Transparent
 
     Card(
         modifier = modifier
@@ -294,9 +367,11 @@ fun EquipmentCard(
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
+                    .border(2.dp, equipmentBorderColor, CircleShape)
                     .clickable {
-                        if (!isEditing) {
+                        if (isEditing) {
+                            showMediaSelectorDialog = true
+                        } else {
                             if (equipment.photoUri != null) {
                                 showFullImageDialog = equipment.photoUri
                             } else if (equipment.iconIdentifier == null) {
@@ -333,17 +408,6 @@ fun EquipmentCard(
                         label = { Text(stringResource(R.string.equipment_description)) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    EquipmentMediaSelector(
-                        photoUri = equipment.photoUri,
-                        iconIdentifier = equipment.iconIdentifier,
-                        mediaLibrary = equipmentMedia,
-                        onMediaSelected = { iconId, photoUri ->
-                            onUpdateEquipment(equipment.copy(iconIdentifier = iconId, photoUri = photoUri))
-                        },
-                        onToggleMediaVisibility = onToggleMediaVisibility,
-                        forcedCategory = "EQUIPMENT"
                     )
                 } else {
                     Text(
@@ -388,7 +452,7 @@ fun EquipmentCard(
                         contentDescription = if (isEditing) stringResource(R.string.save_equipment) else stringResource(R.string.edit_equipment)
                     )
                 }
-                IconButton(onClick = {}) {
+                IconButton(onClick = { /* Drag is handled by the parent */ }) {
                     Icon(
                         imageVector = Icons.Filled.DragHandle,
                         contentDescription = stringResource(R.string.drag_to_reorder)

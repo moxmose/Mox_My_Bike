@@ -64,5 +64,6 @@
     <string name="restore_log">Restore Log</string>
     <string name="equipment_icon">Equipment Icon</string>
     <string name="operation_icon">Operation icon</string>
+    <string name="select_media">Select media</string>
 
 </resources>
