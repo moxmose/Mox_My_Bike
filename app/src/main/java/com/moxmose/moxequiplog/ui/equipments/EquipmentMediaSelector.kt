@@ -10,22 +10,53 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotInterested
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,7 +75,7 @@ import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EquipmentMediaSelector(
     photoUri: String?,
@@ -60,250 +91,29 @@ fun EquipmentMediaSelector(
     onSetDefaultInCategory: ((String, String?, String?) -> Unit)? = null,
     isPhotoUsed: (suspend (String) -> Boolean)? = null,
     isPrefsMode: Boolean = false,
-    forcedCategory: String? = null
+    forcedCategory: String? = null,
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    var imageToDelete by remember { mutableStateOf<Media?>(null) }
-    var showHidden by remember { mutableStateOf(isPrefsMode) }
-    var currentFilterCategory by remember { mutableStateOf(forcedCategory ?: "ALL") }
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    
-    val context = LocalContext.current
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, flags)
-                val uriString = it.toString()
-                val targetCategory = if (currentFilterCategory == "ALL") "EQUIPMENT" else currentFilterCategory
-                onAddMedia?.invoke(uriString, targetCategory)
-                onMediaSelected(null, uriString)
-            } catch (e: SecurityException) {
-                Log.e("MediaSelector", "Failed to take permission", e)
-            }
-        }
-    }
-
-    // Confirm Delete Dialog
-    imageToDelete?.let { media ->
-        var isUsed by remember { mutableStateOf(false) }
-        LaunchedEffect(media.uri) { isUsed = isPhotoUsed?.invoke(media.uri) ?: false }
-        val categoryName = categories.find { it.id == media.category }?.name ?: media.category
-
-        AlertDialog(
-            onDismissRequest = { imageToDelete = null },
-            title = { Text("Elimina immagine") },
-            text = {
-                Column {
-                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?")
-                    if (isUsed) {
-                        Spacer(Modifier.height(8.dp))
-                        Text("ATTENZIONE: In uso!", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onRemoveMedia?.invoke(media.uri, media.category)
-                        if (photoUri == media.uri) onMediaSelected(null, null)
-                        imageToDelete = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Elimina") }
-            },
-            dismissButton = { TextButton(onClick = { imageToDelete = null }) { Text("Annulla") } }
-        )
-    }
 
     if (showPicker) {
-        AlertDialog(
+        MediaPickerDialog(
             onDismissRequest = { showPicker = false },
-            title = { 
-                Text(
-                    text = if (isPrefsMode) "Gestione Libreria" else "Seleziona Media",
-                    modifier = Modifier.fillMaxWidth(), 
-                    textAlign = TextAlign.Center 
-                ) 
+            photoUri = photoUri,
+            iconIdentifier = iconIdentifier,
+            onMediaSelected = {
+                onMediaSelected(it.first, it.second)
+                showPicker = false
             },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth().height(550.dp)) {
-                    if (forcedCategory == null || isPrefsMode) {
-                        ExposedDropdownMenuBox(
-                            expanded = dropdownExpanded,
-                            onExpandedChange = { dropdownExpanded = it },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            OutlinedTextField(
-                                value = if (currentFilterCategory == "ALL") "Tutte le categorie" else categories.find { it.id == currentFilterCategory }?.name ?: currentFilterCategory,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Filtra per Categoria") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
-                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = dropdownExpanded,
-                                onDismissRequest = { dropdownExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Tutte le categorie") },
-                                    onClick = { currentFilterCategory = "ALL"; dropdownExpanded = false }
-                                )
-                                categories.sortedBy { it.name }.forEach { cat ->
-                                    DropdownMenuItem(
-                                        text = { Text(cat.name) },
-                                        onClick = { currentFilterCategory = cat.id; dropdownExpanded = false }
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = { imagePickerLauncher.launch(arrayOf("image/*")) }, 
-                            modifier = Modifier.weight(1f),
-                            enabled = currentFilterCategory != "ALL" || forcedCategory != null
-                        ) {
-                            Icon(Icons.Default.AddAPhoto, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Importa")
-                        }
-                        
-                        IconButton(
-                            onClick = { showHidden = !showHidden },
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = if (showHidden) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                imageVector = if (showHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = if (showHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(8.dp))
-
-                    val isMixedMode = currentFilterCategory == "ALL"
-                    if (isMixedMode && isPrefsMode) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Clicca un elemento per impostarlo come default.", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Drag & drop e importazione non disponibili. Seleziona una categoria per abilitarli.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    } else {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
-                                Spacer(Modifier.width(8.dp))
-                                val text = if (isPrefsMode) "Clicca per default, trascina per ordinare, importa nuove immagini." else "Tocca per selezionare, trascina per ordinare."
-                                Text(text, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                    
-                    Spacer(Modifier.height(12.dp))
-
-                    val filteredAndSortedMedia = mediaLibrary
-                        .filter { media ->
-                            val matchesCategory = currentFilterCategory == "ALL" || media.category == currentFilterCategory
-                            matchesCategory && (showHidden || !media.hidden)
-                        }
-                        .sortedWith(compareBy({ it.category }, { it.displayOrder }))
-
-                    DraggableMediaGrid(
-                        items = filteredAndSortedMedia,
-                        onMove = { from, to ->
-                            if (onUpdateMediaOrder != null && currentFilterCategory != "ALL") {
-                                val newList = filteredAndSortedMedia.toMutableList().apply { add(to, removeAt(from)) }
-                                onUpdateMediaOrder(newList.mapIndexed { index, m -> m.copy(displayOrder = index) })
-                            }
-                        },
-                        itemContent = { media ->
-                            val uriKey = media.uri.removePrefix("icon:")
-                            val cat = categories.find { it.id == media.category }
-                            val catColorHex = cat?.color ?: "#808080"
-                            val catColor = Color(android.graphics.Color.parseColor(catColorHex))
-                            
-                            val isSelected = if (isPrefsMode) {
-                                if (uriKey == "none") {
-                                    cat?.defaultIconIdentifier == null && cat?.defaultPhotoUri == null
-                                } else {
-                                    (media.mediaType == "ICON" && uriKey == cat?.defaultIconIdentifier) ||
-                                    (media.mediaType == "IMAGE" && media.uri == cat?.defaultPhotoUri)
-                                }
-                            } else {
-                                if (uriKey == "none") {
-                                    photoUri == null && iconIdentifier == null
-                                } else {
-                                    (media.mediaType == "ICON" && iconIdentifier == uriKey) ||
-                                    (media.mediaType == "IMAGE" && photoUri == media.uri)
-                                }
-                            }
-
-                            MediaGridItem(
-                                media = media,
-                                categoryColor = catColor,
-                                isSelected = isSelected,
-                                isHidden = media.hidden,
-                                isManagementMode = isPrefsMode || forcedCategory == null,
-                                onSelect = {
-                                    if (isPrefsMode) {
-                                        if (media.mediaType == "ICON") {
-                                            onSetDefaultInCategory?.invoke(media.category, if(uriKey == "none") null else uriKey, null)
-                                        } else {
-                                            onSetDefaultInCategory?.invoke(media.category, null, media.uri)
-                                        }
-                                    } else {
-                                        if (media.mediaType == "ICON") {
-                                            if (uriKey == "none") onMediaSelected(null, null)
-                                            else onMediaSelected(uriKey, null)
-                                        } else {
-                                            onMediaSelected(null, media.uri)
-                                        }
-                                        showPicker = false
-                                    }
-                                },
-                                onToggleVisibility = {
-                                    onToggleMediaVisibility?.invoke(media.uri, media.category)
-                                },
-                                onDelete = { if (media.mediaType == "IMAGE") imageToDelete = media }
-                            )
-                        }
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPicker = false }) { Text("Chiudi") } }
+            mediaLibrary = mediaLibrary,
+            categories = categories,
+            onAddMedia = onAddMedia,
+            onRemoveMedia = onRemoveMedia,
+            onUpdateMediaOrder = onUpdateMediaOrder,
+            onToggleMediaVisibility = onToggleMediaVisibility,
+            onSetDefaultInCategory = onSetDefaultInCategory,
+            isPhotoUsed = isPhotoUsed,
+            isPrefsMode = isPrefsMode,
+            forcedCategory = forcedCategory
         )
     }
 
@@ -324,7 +134,7 @@ fun EquipmentMediaSelector(
                 Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, forcedCategory ?: "EQUIPMENT"), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
             }
             else -> {
-                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(imageVector = Icons.Default.NotInterested, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("Nothing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -333,11 +143,289 @@ fun EquipmentMediaSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun MediaPickerDialog(
+    onDismissRequest: () -> Unit,
+    photoUri: String?,
+    iconIdentifier: String?,
+    onMediaSelected: (Pair<String?, String?>) -> Unit,
+    mediaLibrary: List<Media>,
+    categories: List<Category>,
+    onAddMedia: ((String, String) -> Unit)?,
+    onRemoveMedia: ((String, String) -> Unit)?,
+    onUpdateMediaOrder: ((List<Media>) -> Unit)?,
+    onToggleMediaVisibility: ((String, String) -> Unit)?,
+    onSetDefaultInCategory: ((String, String?, String?) -> Unit)?,
+    isPhotoUsed: (suspend (String) -> Boolean)?,
+    isPrefsMode: Boolean,
+    forcedCategory: String?
+) {
+    var imageToDelete by remember { mutableStateOf<Media?>(null) }
+    var showHidden by remember { mutableStateOf(isPrefsMode) }
+    var currentFilterCategory by remember { mutableStateOf(forcedCategory ?: "ALL") }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, flags)
+                val uriString = it.toString()
+                val targetCategory = if (currentFilterCategory == "ALL") "EQUIPMENT" else currentFilterCategory
+                onAddMedia?.invoke(uriString, targetCategory)
+            } catch (e: SecurityException) {
+                Log.e("MediaSelector", "Failed to take permission", e)
+            }
+        }
+    }
+
+    imageToDelete?.let {
+        var isUsed by remember { mutableStateOf(false) }
+        LaunchedEffect(it.uri) { isUsed = isPhotoUsed?.invoke(it.uri) ?: false }
+        val categoryName = categories.find { cat -> cat.id == it.category }?.name ?: it.category
+
+        AlertDialog(
+            onDismissRequest = { imageToDelete = null },
+            title = { Text("Elimina immagine") },
+            text = {
+                Column {
+                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?")
+                    if (isUsed) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("ATTENZIONE: In uso!", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRemoveMedia?.invoke(it.uri, it.category)
+                        if (photoUri == it.uri) onMediaSelected(Pair(null, null))
+                        imageToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Elimina") }
+            },
+            dismissButton = { TextButton(onClick = { imageToDelete = null }) { Text("Annulla") } }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Text(
+                text = if (isPrefsMode) "Gestione Libreria" else "Seleziona Media",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().height(550.dp)) {
+                if (forcedCategory == null || isPrefsMode) {
+                    ExposedDropdownMenuBox(
+                        expanded = dropdownExpanded,
+                        onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = if (currentFilterCategory == "ALL") "Tutte le categorie" else categories.find { it.id == currentFilterCategory }?.name ?: currentFilterCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Filtra per Categoria") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Tutte le categorie") },
+                                onClick = { currentFilterCategory = "ALL"; dropdownExpanded = false }
+                            )
+                            categories.sortedBy { it.name }.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat.name) },
+                                    onClick = { currentFilterCategory = cat.id; dropdownExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
+                        modifier = Modifier.weight(1f),
+                        enabled = onAddMedia != null && (currentFilterCategory != "ALL" || forcedCategory != null)
+                    ) {
+                        Icon(Icons.Default.AddAPhoto, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Importa")
+                    }
+
+                    IconButton(
+                        onClick = { showHidden = !showHidden },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = if (showHidden) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (showHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = if (showHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                val isMixedMode = currentFilterCategory == "ALL"
+                val canDrag = onUpdateMediaOrder != null && !isMixedMode
+                if (isMixedMode && isPrefsMode) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Clicca un elemento per impostarlo come default.", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Drag & drop e importazione non disponibili. Seleziona una categoria per abilitarli.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                            Spacer(Modifier.width(8.dp))
+                            val text = when {
+                                isPrefsMode && canDrag -> "Clicca per default, trascina per ordinare, importa nuove immagini."
+                                isPrefsMode && !canDrag -> "Clicca per impostare come default."
+                                !isPrefsMode && canDrag -> "Tocca per selezionare, trascina per ordinare."
+                                else -> "Tocca per selezionare."
+                            }
+                            Text(text, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                val filteredAndSortedMedia = mediaLibrary
+                    .filter { media ->
+                        val matchesCategory = currentFilterCategory == "ALL" || media.category == currentFilterCategory
+                        matchesCategory && (showHidden || !media.hidden)
+                    }
+                    .sortedWith(compareBy({ it.category }, { it.displayOrder }))
+
+                DraggableMediaGrid(
+                    items = filteredAndSortedMedia,
+                    onMove = {
+                        if (canDrag) {
+                            val newList = filteredAndSortedMedia.toMutableList().apply { add(it.second, removeAt(it.first)) }
+                            onUpdateMediaOrder?.invoke(newList.mapIndexed { index, m -> m.copy(displayOrder = index) })
+                        }
+                    },
+                    canDrag = canDrag,
+                    itemContent = { media ->
+                        val uriKey = media.uri.removePrefix("icon:")
+                        val cat = categories.find { it.id == media.category }
+                        val catColorHex = cat?.color ?: "#808080"
+                        val catColor = Color(android.graphics.Color.parseColor(catColorHex))
+
+                        val isSelected = if (isPrefsMode) {
+                            if (uriKey == "none") {
+                                cat?.defaultIconIdentifier == null && cat?.defaultPhotoUri == null
+                            } else {
+                                (media.mediaType == "ICON" && uriKey == cat?.defaultIconIdentifier) ||
+                                (media.mediaType == "IMAGE" && media.uri == cat?.defaultPhotoUri)
+                            }
+                        } else {
+                            if (uriKey == "none") {
+                                photoUri == null && iconIdentifier == null
+                            } else {
+                                (media.mediaType == "ICON" && iconIdentifier == uriKey) ||
+                                (media.mediaType == "IMAGE" && photoUri == media.uri)
+                            }
+                        }
+
+                        val isDefaultInCat = if (isPrefsMode) {
+                            false // Gestito da isSelected
+                        } else {
+                            if (uriKey == "none") {
+                                cat?.defaultIconIdentifier == null && cat?.defaultPhotoUri == null
+                            } else {
+                                (media.mediaType == "ICON" && uriKey == cat?.defaultIconIdentifier) ||
+                                (media.mediaType == "IMAGE" && media.uri == cat?.defaultPhotoUri)
+                            }
+                        }
+
+                        MediaGridItem(
+                            media = media,
+                            categoryColor = catColor,
+                            isSelected = isSelected,
+                            isDefault = isDefaultInCat,
+                            isHidden = media.hidden,
+                            isManagementMode = isPrefsMode || forcedCategory == null,
+                            onSelect = {
+                                if (isPrefsMode) {
+                                    if (media.mediaType == "ICON") {
+                                        onSetDefaultInCategory?.invoke(media.category, if (uriKey == "none") null else uriKey, null)
+                                    } else {
+                                        onSetDefaultInCategory?.invoke(media.category, null, media.uri)
+                                    }
+                                } else {
+                                    if (media.mediaType == "ICON") {
+                                        if (uriKey == "none") onMediaSelected(Pair(null, null))
+                                        else onMediaSelected(Pair(uriKey, null))
+                                    } else {
+                                        onMediaSelected(Pair(null, media.uri))
+                                    }
+                                }
+                            },
+                            onToggleVisibility = {
+                                onToggleMediaVisibility?.invoke(media.uri, media.category)
+                            },
+                            onDelete = { if (media.mediaType == "IMAGE") imageToDelete = media }
+                        )
+                    }
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismissRequest) { Text("Chiudi") } }
+    )
+}
+
+
 @Composable
 fun MediaGridItem(
     media: Media,
     categoryColor: Color,
     isSelected: Boolean,
+    isDefault: Boolean,
     isHidden: Boolean,
     isManagementMode: Boolean,
     onSelect: () -> Unit,
@@ -351,8 +439,12 @@ fun MediaGridItem(
                 .clip(CircleShape)
                 .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
                 .border(
-                    width = if (isSelected) 5.dp else 2.dp,
-                    color = if (isSelected) categoryColor else categoryColor.copy(alpha = 0.4f),
+                    width = when {
+                        isSelected -> 5.dp
+                        isDefault -> 1.dp
+                        else -> 2.dp
+                    },
+                    color = if (isSelected || isDefault) categoryColor else categoryColor.copy(alpha = 0.4f),
                     shape = CircleShape
                 )
                 .clickable { onSelect() }
@@ -417,38 +509,35 @@ fun MediaGridItem(
 @Composable
 fun DraggableMediaGrid(
     items: List<Media>,
-    onMove: (Int, Int) -> Unit,
+    onMove: (Pair<Int, Int>) -> Unit,
+    canDrag: Boolean,
     itemContent: @Composable (Media) -> Unit
 ) {
     val gridState = rememberLazyGridState()
     var draggingItemIndex by remember { mutableStateOf<Int?>(null) }
     var draggingOffset by remember { mutableStateOf(Offset.Zero) }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 80.dp),
-        state = gridState,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.pointerInput(items) {
+    val pointerInputModifier = if (canDrag) {
+        Modifier.pointerInput(items) {
             detectDragGesturesAfterLongPress(
                 onDragStart = { offset ->
                     gridState.layoutInfo.visibleItemsInfo
-                        .firstOrNull { offset.y.toInt() in it.offset.y..(it.offset.y + it.size.height) && 
-                                      offset.x.toInt() in it.offset.x..(it.offset.x + it.size.width) }
+                        .firstOrNull { offset.y.toInt() in it.offset.y..(it.offset.y + it.size.height) &&
+                                offset.x.toInt() in it.offset.x..(it.offset.x + it.size.width) }
                         ?.let { draggingItemIndex = it.index }
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
                     draggingOffset += dragAmount
                     val currentIndex = draggingItemIndex ?: return@detectDragGesturesAfterLongPress
-                    
+
                     gridState.layoutInfo.visibleItemsInfo
                         .firstOrNull { item ->
                             val center = Offset(item.offset.x + item.size.width / 2f, item.offset.y + item.size.height / 2f)
                             (change.position - center).getDistance() < item.size.width / 2f
                         }?.let { target ->
                             if (currentIndex != target.index) {
-                                onMove(currentIndex, target.index)
+                                onMove(Pair(currentIndex, target.index))
                                 draggingItemIndex = target.index
                             }
                         }
@@ -457,6 +546,14 @@ fun DraggableMediaGrid(
                 onDragCancel = { draggingItemIndex = null; draggingOffset = Offset.Zero }
             )
         }
+    } else Modifier
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 80.dp),
+        state = gridState,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = pointerInputModifier
     ) {
         itemsIndexed(items, key = { _, m -> "${m.category}:${m.uri}" }) { index, media ->
             Box(modifier = Modifier.zIndex(if (draggingItemIndex == index) 1f else 0f)) {

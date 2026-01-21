@@ -2,7 +2,6 @@ package com.moxmose.moxequiplog.ui.equipments
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.moxmose.moxequiplog.data.AppSettingsManager
 import com.moxmose.moxequiplog.data.MediaRepository
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Equipment
@@ -10,12 +9,12 @@ import com.moxmose.moxequiplog.data.local.EquipmentDao
 import com.moxmose.moxequiplog.data.local.Media
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class EquipmentsViewModel(
     private val equipmentDao: EquipmentDao,
-    private val appSettingsManager: AppSettingsManager,
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
 
@@ -33,20 +32,6 @@ class EquipmentsViewModel(
             initialValue = emptyList()
         )
 
-    val favoriteIcon: StateFlow<String?> = appSettingsManager.favoriteIcon
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = null
-        )
-
-    val favoritePhotoUri: StateFlow<String?> = appSettingsManager.favoritePhotoUri
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = null
-        )
-        
     val equipmentMedia: StateFlow<List<Media>> = mediaRepository.getMediaByCategory("EQUIPMENT")
         .stateIn(
             scope = viewModelScope,
@@ -65,11 +50,16 @@ class EquipmentsViewModel(
         viewModelScope.launch {
             val currentList = allEquipments.value
             val nextOrder = if (currentList.isEmpty()) 0 else currentList.maxOf { it.displayOrder } + 1
+            val equipmentCategory = allCategories.first().find { it.id == "EQUIPMENT" }
+
+            val equipmentPhotoUri = photoUri ?: equipmentCategory?.defaultPhotoUri
+            val equipmentIconIdentifier = iconIdentifier ?: equipmentCategory?.defaultIconIdentifier
+
             equipmentDao.insertEquipment(
                 Equipment(
                     description = description,
-                    photoUri = photoUri,
-                    iconIdentifier = iconIdentifier,
+                    photoUri = equipmentPhotoUri,
+                    iconIdentifier = equipmentIconIdentifier,
                     displayOrder = nextOrder
                 )
             )
@@ -99,7 +89,7 @@ class EquipmentsViewModel(
             equipmentDao.updateEquipment(equipment.copy(dismissed = false))
         }
     }
-    
+
     fun addMedia(uri: String, category: String) {
         viewModelScope.launch {
             mediaRepository.addMedia(uri, category)
