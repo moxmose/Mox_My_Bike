@@ -1,10 +1,5 @@
 package com.moxmose.moxequiplog.ui.operations
 
-import android.content.Intent
-import android.net.Uri
-import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -22,8 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
@@ -41,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,25 +53,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-//import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.moxmose.moxequiplog.R
+import com.moxmose.moxequiplog.data.local.Category
+import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.data.local.OperationType
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
+import com.moxmose.moxequiplog.ui.equipments.MediaSelector
+import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 import org.koin.androidx.compose.koinViewModel
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 
 @Composable
 fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
     val activeOperationTypes by viewModel.activeOperationTypes.collectAsState()
     val allOperationTypes by viewModel.allOperationTypes.collectAsState()
+    val operationTypeMedia by viewModel.operationTypeMedia.collectAsState()
+    val allCategories by viewModel.allCategories.collectAsState()
 
     var showDismissed by rememberSaveable { mutableStateOf(false) }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
     val typesToShow = if (showDismissed) allOperationTypes else activeOperationTypes
+    val operationCategory = allCategories.find { it.id == "OPERATION" }
 
     OperationTypeScreenContent(
         operationTypes = typesToShow,
+        operationTypeMedia = operationTypeMedia,
+        allCategories = allCategories,
+        defaultIcon = operationCategory?.defaultIconIdentifier,
+        defaultPhotoUri = operationCategory?.defaultPhotoUri,
         onAddOperationType = viewModel::addOperationType,
         onUpdateOperationTypes = viewModel::updateOperationTypes,
         onUpdateOperationType = viewModel::updateOperationType,
@@ -86,14 +89,19 @@ fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
         showDismissed = showDismissed,
         onToggleShowDismissed = { showDismissed = !showDismissed },
         showAddDialog = showAddDialog,
-        onShowAddDialogChange = { showAddDialog = it }
+        onShowAddDialogChange = { showAddDialog = it },
+        onAddMedia = viewModel::addMedia
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OperationTypeScreenContent(
     operationTypes: List<OperationType>,
+    operationTypeMedia: List<Media>,
+    allCategories: List<Category>,
+    defaultIcon: String?,
+    defaultPhotoUri: String?,
     showDismissed: Boolean,
     onToggleShowDismissed: () -> Unit,
     showAddDialog: Boolean,
@@ -103,6 +111,7 @@ fun OperationTypeScreenContent(
     onUpdateOperationType: (OperationType) -> Unit,
     onDismissOperationType: (OperationType) -> Unit,
     onRestoreOperationType: (OperationType) -> Unit,
+    onAddMedia: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val operationTypesState = remember(operationTypes) { operationTypes.toMutableStateList() }
@@ -129,11 +138,16 @@ fun OperationTypeScreenContent(
     ) { paddingValues ->
         if (showAddDialog) {
             AddOperationTypeDialog(
+                mediaLibrary = operationTypeMedia,
+                categories = allCategories,
+                defaultIcon = defaultIcon,
+                defaultPhotoUri = defaultPhotoUri,
                 onDismissRequest = { onShowAddDialogChange(false) },
                 onConfirm = { description, icon, color, photoUri ->
                     onAddOperationType(description, icon, color, photoUri)
                     onShowAddDialogChange(false)
-                }
+                },
+                onAddMedia = onAddMedia
             )
         }
 
@@ -177,22 +191,24 @@ fun OperationTypeScreenContent(
 }
 
 @Composable
-fun AddOperationTypeDialog(onDismissRequest: () -> Unit, onConfirm: (String, String?, String?, String?) -> Unit) {
-    var description by remember { mutableStateOf("") }
-    var photoUri by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
+fun AddOperationTypeDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: (String, String?, String?, String?) -> Unit,
+    mediaLibrary: List<Media>,
+    categories: List<Category>,
+    defaultIcon: String?,
+    defaultPhotoUri: String?,
+    onAddMedia: (String, String) -> Unit
+) {
+    var description by rememberSaveable { mutableStateOf("") }
+    var photoUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var iconId by rememberSaveable { mutableStateOf<String?>(null) }
+    var isPristine by rememberSaveable { mutableStateOf(true) }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, flags)
-                photoUri = it.toString()
-            } catch (e: SecurityException) {
-                Log.e("AddOperationTypeDialog", "Failed to take persistable URI permission", e)
-            }
+    if (isPristine && (defaultIcon != null || defaultPhotoUri != null)) {
+        LaunchedEffect(defaultIcon, defaultPhotoUri) {
+            iconId = defaultIcon
+            photoUri = defaultPhotoUri
         }
     }
 
@@ -218,37 +234,25 @@ fun AddOperationTypeDialog(onDismissRequest: () -> Unit, onConfirm: (String, Str
                     singleLine = true
                 )
 
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
-                        .clickable { imagePickerLauncher.launch(arrayOf("image/*")) }
-                ) {
-                    if (photoUri != null) {
-                        AsyncImage(
-                            model = photoUri,
-                            contentDescription = stringResource(R.string.selected_image),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = stringResource(R.string.add_image),
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                MediaSelector(
+                    photoUri = photoUri,
+                    iconIdentifier = iconId,
+                    category = "OPERATION",
+                    onMediaSelected = { newIconId, newPhotoUri ->
+                        isPristine = false
+                        iconId = newIconId
+                        photoUri = newPhotoUri
+                    },
+                    mediaLibrary = mediaLibrary,
+                    categories = categories,
+                    onAddMedia = onAddMedia
+                )
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onConfirm(description, null, null, photoUri)
+                    onConfirm(description, iconId, null, photoUri)
                 }
             ) {
                 Text(stringResource(R.string.button_add))
@@ -316,26 +320,10 @@ fun OperationTypeCard(
         FullImageDialog(photoUri = uri, onDismiss = { showFullImageDialog = null })
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, flags)
-            } catch (e: SecurityException) {
-                Log.e("OperationTypeCard", "Failed to take persistable URI permission", e)
-            }
-            onUpdateOperationType(operationType.copy(photoUri = it.toString()))
-        }
-    }
-
     val imageRequest = ImageRequest.Builder(context)
         .data(operationType.photoUri)
         .crossfade(true)
         .build()
-
-    val placeholderPainter = rememberVectorPainter(image = Icons.Default.Build)
 
     Card(
         modifier = modifier
@@ -355,7 +343,7 @@ fun OperationTypeCard(
                         .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
                         .clickable {
                             if (isEditing) {
-                                imagePickerLauncher.launch(arrayOf("image/*"))
+                                // Replace with MediaSelector logic
                             } else {
                                 if (operationType.photoUri != null) {
                                     showFullImageDialog = operationType.photoUri
@@ -370,13 +358,12 @@ fun OperationTypeCard(
                             model = imageRequest,
                             contentDescription = stringResource(R.string.operation_type_photo),
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            placeholder = placeholderPainter,
-                            error = placeholderPainter
+                            contentScale = ContentScale.Crop
                         )
                     } else {
+                        val icon = EquipmentIconProvider.getIcon(operationType.iconIdentifier, "OPERATION")
                         Icon(
-                            imageVector = Icons.Default.Build,
+                            imageVector = icon,
                             contentDescription = stringResource(R.string.operation_type_photo),
                             modifier = Modifier.size(32.dp),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer

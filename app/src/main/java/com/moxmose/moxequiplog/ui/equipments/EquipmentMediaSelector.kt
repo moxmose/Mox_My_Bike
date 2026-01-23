@@ -77,9 +77,10 @@ import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun EquipmentMediaSelector(
+fun MediaSelector(
     photoUri: String?,
     iconIdentifier: String?,
+    category: String,
     onMediaSelected: (String?, String?) -> Unit,
     modifier: Modifier = Modifier,
     mediaLibrary: List<Media> = emptyList(),
@@ -91,7 +92,6 @@ fun EquipmentMediaSelector(
     onSetDefaultInCategory: ((String, String?, String?) -> Unit)? = null,
     isPhotoUsed: (suspend (String) -> Boolean)? = null,
     isPrefsMode: Boolean = false,
-    forcedCategory: String? = null,
 ) {
     var showPicker by remember { mutableStateOf(false) }
 
@@ -113,7 +113,7 @@ fun EquipmentMediaSelector(
             onSetDefaultInCategory = onSetDefaultInCategory,
             isPhotoUsed = isPhotoUsed,
             isPrefsMode = isPrefsMode,
-            forcedCategory = forcedCategory
+            forcedCategory = if (isPrefsMode) null else category
         )
     }
 
@@ -131,7 +131,7 @@ fun EquipmentMediaSelector(
                 AsyncImage(model = photoUri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
             }
             iconIdentifier != null -> {
-                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, forcedCategory ?: "EQUIPMENT"), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, category), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
             }
             else -> {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -175,7 +175,7 @@ fun MediaPickerDialog(
                 val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                 context.contentResolver.takePersistableUriPermission(it, flags)
                 val uriString = it.toString()
-                val targetCategory = if (currentFilterCategory == "ALL") "EQUIPMENT" else currentFilterCategory
+                val targetCategory = forcedCategory ?: currentFilterCategory
                 onAddMedia?.invoke(uriString, targetCategory)
             } catch (e: SecurityException) {
                 Log.e("MediaSelector", "Failed to take permission", e)
@@ -193,7 +193,7 @@ fun MediaPickerDialog(
             title = { Text("Elimina immagine") },
             text = {
                 Column {
-                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?")
+                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?'")
                     if (isUsed) {
                         Spacer(Modifier.height(8.dp))
                         Text("ATTENZIONE: In uso!", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)

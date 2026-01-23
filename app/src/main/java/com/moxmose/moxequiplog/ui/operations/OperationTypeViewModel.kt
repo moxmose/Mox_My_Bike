@@ -2,6 +2,9 @@ package com.moxmose.moxequiplog.ui.operations
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moxmose.moxequiplog.data.MediaRepository
+import com.moxmose.moxequiplog.data.local.Category
+import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.data.local.OperationType
 import com.moxmose.moxequiplog.data.local.OperationTypeDao
 import kotlinx.coroutines.flow.SharingStarted
@@ -10,7 +13,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class OperationTypeViewModel(private val operationTypeDao: OperationTypeDao) : ViewModel() {
+class OperationTypeViewModel(
+    private val operationTypeDao: OperationTypeDao,
+    private val mediaRepository: MediaRepository
+) : ViewModel() {
 
     val activeOperationTypes: StateFlow<List<OperationType>> = operationTypeDao.getActiveOperationTypes()
         .stateIn(
@@ -20,6 +26,20 @@ class OperationTypeViewModel(private val operationTypeDao: OperationTypeDao) : V
         )
 
     val allOperationTypes: StateFlow<List<OperationType>> = operationTypeDao.getAllOperationTypes()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
+    val operationTypeMedia: StateFlow<List<Media>> = mediaRepository.getMediaByCategory("OPERATION")
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
+    val allCategories: StateFlow<List<Category>> = mediaRepository.allCategories
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000L),
@@ -62,6 +82,12 @@ class OperationTypeViewModel(private val operationTypeDao: OperationTypeDao) : V
     fun restoreOperationType(operationType: OperationType) {
         viewModelScope.launch {
             updateOperationType(operationType.copy(dismissed = false))
+        }
+    }
+
+    fun addMedia(uri: String, category: String) {
+        viewModelScope.launch {
+            mediaRepository.addMedia(uri, category)
         }
     }
 }
