@@ -1,7 +1,6 @@
 package com.moxmose.moxequiplog.ui.operations
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -24,10 +24,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -45,12 +45,15 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.toColorInt
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.moxmose.moxequiplog.R
@@ -58,7 +61,7 @@ import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.data.local.OperationType
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
-import com.moxmose.moxequiplog.ui.equipments.MediaSelector
+import com.moxmose.moxequiplog.ui.components.MediaPickerDialog
 import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 import org.koin.androidx.compose.koinViewModel
 
@@ -90,11 +93,12 @@ fun OperationTypeScreen(viewModel: OperationTypeViewModel = koinViewModel()) {
         onToggleShowDismissed = { showDismissed = !showDismissed },
         showAddDialog = showAddDialog,
         onShowAddDialogChange = { showAddDialog = it },
-        onAddMedia = viewModel::addMedia
+        onAddMedia = viewModel::addMedia,
+        onToggleMediaVisibility = viewModel::toggleMediaVisibility,
+        operationCategoryColor = operationCategory?.color
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OperationTypeScreenContent(
     operationTypes: List<OperationType>,
@@ -106,12 +110,14 @@ fun OperationTypeScreenContent(
     onToggleShowDismissed: () -> Unit,
     showAddDialog: Boolean,
     onShowAddDialogChange: (Boolean) -> Unit,
-    onAddOperationType: (String, String?, String?, String?) -> Unit,
+    onAddOperationType: (String, String?, String?) -> Unit,
     onUpdateOperationTypes: (List<OperationType>) -> Unit,
     onUpdateOperationType: (OperationType) -> Unit,
     onDismissOperationType: (OperationType) -> Unit,
     onRestoreOperationType: (OperationType) -> Unit,
     onAddMedia: (String, String) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
+    operationCategoryColor: String?,
     modifier: Modifier = Modifier
 ) {
     val operationTypesState = remember(operationTypes) { operationTypes.toMutableStateList() }
@@ -143,11 +149,13 @@ fun OperationTypeScreenContent(
                 defaultIcon = defaultIcon,
                 defaultPhotoUri = defaultPhotoUri,
                 onDismissRequest = { onShowAddDialogChange(false) },
-                onConfirm = { description, icon, color, photoUri ->
-                    onAddOperationType(description, icon, color, photoUri)
+                onConfirm = { description, icon, photoUri ->
+                    onAddOperationType(description, icon, photoUri)
                     onShowAddDialogChange(false)
                 },
-                onAddMedia = onAddMedia
+                onAddMedia = onAddMedia,
+                onToggleMediaVisibility = onToggleMediaVisibility,
+                operationCategoryColor = operationCategoryColor
             )
         }
 
@@ -182,7 +190,12 @@ fun OperationTypeScreenContent(
                         operationType = operationType,
                         onUpdateOperationType = onUpdateOperationType,
                         onDismissOperationType = onDismissOperationType,
-                        onRestoreOperationType = onRestoreOperationType
+                        onRestoreOperationType = onRestoreOperationType,
+                        operationTypeMedia = operationTypeMedia,
+                        allCategories = allCategories,
+                        onAddMedia = onAddMedia,
+                        onToggleMediaVisibility = onToggleMediaVisibility,
+                        operationCategoryColor = operationCategoryColor
                     )
                 }
             )
@@ -193,23 +206,51 @@ fun OperationTypeScreenContent(
 @Composable
 fun AddOperationTypeDialog(
     onDismissRequest: () -> Unit,
-    onConfirm: (String, String?, String?, String?) -> Unit,
+    onConfirm: (String, String?, String?) -> Unit,
     mediaLibrary: List<Media>,
     categories: List<Category>,
     defaultIcon: String?,
     defaultPhotoUri: String?,
-    onAddMedia: (String, String) -> Unit
+    onAddMedia: (String, String) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
+    operationCategoryColor: String?
 ) {
     var description by rememberSaveable { mutableStateOf("") }
     var photoUri by rememberSaveable { mutableStateOf<String?>(null) }
     var iconId by rememberSaveable { mutableStateOf<String?>(null) }
     var isPristine by rememberSaveable { mutableStateOf(true) }
+    var showMediaSelectorDialog by remember { mutableStateOf(false) }
+
 
     if (isPristine && (defaultIcon != null || defaultPhotoUri != null)) {
         LaunchedEffect(defaultIcon, defaultPhotoUri) {
             iconId = defaultIcon
             photoUri = defaultPhotoUri
         }
+    }
+
+    if (showMediaSelectorDialog) {
+        MediaPickerDialog(
+            onDismissRequest = { showMediaSelectorDialog = false },
+            photoUri = photoUri,
+            iconIdentifier = iconId,
+            onMediaSelected = { (newIconId, newPhotoUri) ->
+                isPristine = false
+                iconId = newIconId
+                photoUri = newPhotoUri
+                showMediaSelectorDialog = false
+            },
+            mediaLibrary = mediaLibrary,
+            categories = categories,
+            onAddMedia = onAddMedia,
+            onRemoveMedia = null,
+            onUpdateMediaOrder = null,
+            onToggleMediaVisibility = onToggleMediaVisibility,
+            onSetDefaultInCategory = null,
+            isPhotoUsed = null,
+            isPrefsMode = false,
+            forcedCategory = "OPERATION"
+        )
     }
 
     AlertDialog(
@@ -222,37 +263,57 @@ fun AddOperationTypeDialog(
             )
         },
         text = {
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val borderColor = operationCategoryColor?.let {
+                    try {
+                        Color(it.toColorInt())
+                    } catch (_: Exception) {
+                        MaterialTheme.colorScheme.primary
+                    }
+                } ?: MaterialTheme.colorScheme.primary
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .border(2.dp, borderColor, CircleShape)
+                        .clickable { showMediaSelectorDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (photoUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current).data(photoUri).crossfade(true).build(),
+                            contentDescription = stringResource(R.string.operation_type_photo),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        val icon = EquipmentIconProvider.getIcon(iconId, "OPERATION")
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = stringResource(R.string.operation_type_photo),
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = description,
                     onValueChange = { if (it.length <= 50) description = it },
                     label = { Text(stringResource(R.string.operation_type_description)) },
+                    modifier = Modifier.weight(1f),
                     singleLine = true
-                )
-
-                MediaSelector(
-                    photoUri = photoUri,
-                    iconIdentifier = iconId,
-                    category = "OPERATION",
-                    onMediaSelected = { newIconId, newPhotoUri ->
-                        isPristine = false
-                        iconId = newIconId
-                        photoUri = newPhotoUri
-                    },
-                    mediaLibrary = mediaLibrary,
-                    categories = categories,
-                    onAddMedia = onAddMedia
                 )
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onConfirm(description, iconId, null, photoUri)
+                    onConfirm(description, iconId, photoUri)
                 }
             ) {
                 Text(stringResource(R.string.button_add))
@@ -293,6 +354,11 @@ fun OperationTypeCard(
     onUpdateOperationType: (OperationType) -> Unit,
     onDismissOperationType: (OperationType) -> Unit,
     onRestoreOperationType: (OperationType) -> Unit,
+    operationTypeMedia: List<Media>,
+    allCategories: List<Category>,
+    onAddMedia: (String, String) -> Unit,
+    onToggleMediaVisibility: (String, String) -> Unit,
+    operationCategoryColor: String?,
     modifier: Modifier = Modifier
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -300,6 +366,7 @@ fun OperationTypeCard(
     val context = LocalContext.current
     var showFullImageDialog by remember { mutableStateOf<String?>(null) }
     var showNoPictureDialog by remember { mutableStateOf(false) }
+    var showMediaSelectorDialog by remember { mutableStateOf(false) }
 
     val cardAlpha = if (operationType.dismissed) 0.5f else 1f
 
@@ -316,6 +383,28 @@ fun OperationTypeCard(
         )
     }
 
+    if (showMediaSelectorDialog) {
+        MediaPickerDialog(
+            onDismissRequest = { showMediaSelectorDialog = false },
+            photoUri = operationType.photoUri,
+            iconIdentifier = operationType.iconIdentifier,
+            onMediaSelected = { (iconId, photoUri) ->
+                onUpdateOperationType(operationType.copy(iconIdentifier = iconId, photoUri = photoUri))
+                showMediaSelectorDialog = false
+            },
+            mediaLibrary = operationTypeMedia,
+            categories = allCategories,
+            onAddMedia = onAddMedia,
+            onRemoveMedia = null,
+            onUpdateMediaOrder = null,
+            onToggleMediaVisibility = onToggleMediaVisibility,
+            onSetDefaultInCategory = null,
+            isPhotoUsed = null,
+            isPrefsMode = false,
+            forcedCategory = "OPERATION"
+        )
+    }
+
     showFullImageDialog?.let { uri ->
         FullImageDialog(photoUri = uri, onDismiss = { showFullImageDialog = null })
     }
@@ -325,104 +414,117 @@ fun OperationTypeCard(
         .crossfade(true)
         .build()
 
+    val operationBorderColor = if (isEditing) {
+        operationCategoryColor?.let {
+            try {
+                Color(it.toColorInt())
+            } catch (_: Exception) {
+                MaterialTheme.colorScheme.primary
+            }
+        } ?: MaterialTheme.colorScheme.primary
+    } else Color.Transparent
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize()
             .graphicsLayer(alpha = cardAlpha),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .then(if (isEditing) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
-                        .clickable {
-                            if (isEditing) {
-                                // Replace with MediaSelector logic
-                            } else {
-                                if (operationType.photoUri != null) {
-                                    showFullImageDialog = operationType.photoUri
-                                } else {
-                                    showNoPictureDialog = true
-                                }
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .border(2.dp, operationBorderColor, CircleShape)
+                    .clickable {
+                        if (isEditing) {
+                            showMediaSelectorDialog = true
+                        } else {
+                            if (operationType.photoUri != null) {
+                                showFullImageDialog = operationType.photoUri
+                            } else if (operationType.iconIdentifier == null) {
+                                showNoPictureDialog = true
                             }
                         }
-                ) {
-                    if (operationType.photoUri != null) {
-                        AsyncImage(
-                            model = imageRequest,
-                            contentDescription = stringResource(R.string.operation_type_photo),
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        val icon = EquipmentIconProvider.getIcon(operationType.iconIdentifier, "OPERATION")
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = stringResource(R.string.operation_type_photo),
-                            modifier = Modifier.size(32.dp),
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (operationType.photoUri != null) {
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = stringResource(R.string.operation_type_photo),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    val icon = EquipmentIconProvider.getIcon(operationType.iconIdentifier, "OPERATION")
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = stringResource(R.string.operation_type_photo),
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
-                Spacer(modifier = Modifier.padding(8.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
 
+            Column(modifier = Modifier.weight(1f)) {
                 if (isEditing) {
                     OutlinedTextField(
                         value = editedDescription,
                         onValueChange = { if (it.length <= 50) editedDescription = it },
                         label = { Text(stringResource(R.string.operation_type_description)) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                 } else {
                     Text(
-                        text = if (editedDescription.isNotBlank()) editedDescription else "id:${operationType.id} - no description",
-                        color = if (editedDescription.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = editedDescription.ifBlank { "id:${operationType.id} - no description" },
+                        color = if (editedDescription.isNotBlank()) LocalContentColor.current else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
 
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isEditing) {
-                        IconButton(
-                            onClick = {
-                                if (operationType.dismissed) {
-                                    onRestoreOperationType(operationType)
-                                } else {
-                                    onDismissOperationType(operationType)
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = if (operationType.dismissed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (operationType.dismissed) stringResource(R.string.restore_operation_type) else stringResource(R.string.dismiss_operation_type)
-                            )
-                        }
-                    }
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isEditing) {
                     IconButton(
                         onClick = {
-                            if (isEditing) {
-                                onUpdateOperationType(operationType.copy(description = editedDescription))
+                            if (operationType.dismissed) {
+                                onRestoreOperationType(operationType)
+                            } else {
+                                onDismissOperationType(operationType)
                             }
-                            isEditing = !isEditing
                         }
                     ) {
                         Icon(
-                            imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
-                            contentDescription = if (isEditing) stringResource(R.string.save_operation_type) else stringResource(R.string.edit_operation_type)
+                            imageVector = if (operationType.dismissed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (operationType.dismissed) stringResource(R.string.restore_operation_type) else stringResource(R.string.dismiss_operation_type)
                         )
                     }
+                }
+                IconButton(
+                    onClick = {
+                        if (isEditing) {
+                            onUpdateOperationType(operationType.copy(description = editedDescription))
+                        }
+                        isEditing = !isEditing
+                    }
+                ) {
+                    Icon(
+                        imageVector = if (isEditing) Icons.Filled.Done else Icons.Filled.Edit,
+                        contentDescription = if (isEditing) stringResource(R.string.save_operation_type) else stringResource(R.string.edit_operation_type)
+                    )
+                }
+                IconButton(onClick = { /* Drag is handled by the parent */ }) {
                     Icon(
                         imageVector = Icons.Filled.DragHandle,
                         contentDescription = stringResource(R.string.drag_to_reorder)

@@ -64,6 +64,7 @@ import com.moxmose.moxequiplog.R
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Equipment
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
+import com.moxmose.moxequiplog.ui.components.MediaPickerDialog
 import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 import com.moxmose.moxequiplog.ui.options.OptionsViewModel
 import org.koin.androidx.compose.koinViewModel

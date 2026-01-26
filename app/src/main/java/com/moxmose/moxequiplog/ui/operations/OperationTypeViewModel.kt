@@ -46,14 +46,13 @@ class OperationTypeViewModel(
             initialValue = emptyList()
         )
 
-    fun addOperationType(description: String, iconIdentifier: String?, color: String?, photoUri: String?) {
+    fun addOperationType(description: String, iconIdentifier: String?, photoUri: String?) {
         viewModelScope.launch {
             val maxDisplayOrder = allOperationTypes.first().maxOfOrNull { it.displayOrder } ?: -1
             operationTypeDao.insertOperationType(
                 OperationType(
                     description = description,
                     iconIdentifier = iconIdentifier,
-                    color = color,
                     photoUri = photoUri,
                     displayOrder = maxDisplayOrder + 1
                 )
@@ -88,6 +87,12 @@ class OperationTypeViewModel(
     fun addMedia(uri: String, category: String) {
         viewModelScope.launch {
             mediaRepository.addMedia(uri, category)
+        }
+    }
+
+    fun toggleMediaVisibility(uri: String, category: String) {
+        viewModelScope.launch {
+            mediaRepository.toggleMediaVisibility(uri, category)
         }
     }
 }
