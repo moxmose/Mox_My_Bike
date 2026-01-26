@@ -4,16 +4,53 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,8 +93,8 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
         onRemoveMedia = viewModel::removeMedia,
         onUpdateMediaOrder = viewModel::updateMediaOrder,
         onToggleMediaVisibility = viewModel::toggleMediaVisibility,
-        onUpdateCategoryColor = { catId, hex ->
-            viewModel.updateCategoryColor(catId, hex)
+        onUpdateCategoryColor = {
+                catId, hex -> viewModel.updateCategoryColor(catId, hex)
         },
         isPhotoUsed = { viewModel.isPhotoUsed(it) },
         showAboutDialog = showAboutDialog,
@@ -239,10 +276,10 @@ fun ColorManagementDialog(
                     }
                     Spacer(Modifier.height(8.dp))
                     FloatingActionButton(
-                        onClick = { 
+                        onClick = {
                             showHidden = !showHidden
                             scope.launch { lazyListState.animateScrollToItem(0) }
-                         },
+                        },
                         containerColor = MaterialTheme.colorScheme.secondary
                     ) {
                         Icon(if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = "Mostra/Nascondi")
@@ -254,7 +291,9 @@ fun ColorManagementDialog(
                 Text(
                     text = "Gestione Colori",
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
                     textAlign = TextAlign.Center
                 )
                 DraggableLazyColumn(
@@ -270,7 +309,7 @@ fun ColorManagementDialog(
                         ColorItemCard(
                             color = color,
                             isSelected = category.color.equals(color.hexValue, ignoreCase = true),
-                            onColorSelected = { 
+                            onColorSelected = {
                                 onColorSelected(color.hexValue)
                                 onDismiss()
                             },
@@ -368,11 +407,37 @@ fun AddColorDialog(
     var name by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    val predefinedColors = listOf(
+        Color(0xFFE57373), Color(0xFFF06292), Color(0xFFBA68C8), Color(0xFF9575CD), Color(0xFF7986CB),
+        Color(0xFF64B5F6), Color(0xFF4FC3F7), Color(0xFF4DD0E1), Color(0xFF4DB6AC), Color(0xFF81C784),
+        Color(0xFFAED581), Color(0xFFDCE775), Color(0xFFFFF176), Color(0xFFFFD54F), Color(0xFFFFB74D),
+        Color(0xFFFF8A65), Color(0xFFA1887F), Color(0xFF90A4AE), Color(0xFFB0BEC5), Color(0xFFEEEEEE)
+    )
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Aggiungi un nuovo colore") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(predefinedColors) {
+                        color ->
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .clickable {
+                                    hex = "#" + color.value.toString(16).substring(2, 8).uppercase()
+                                }
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = hex,
                     onValueChange = {
