@@ -1,4 +1,4 @@
-package com.moxmose.moxequiplog.ui.equipments
+package com.moxmose.moxequiplog.ui.components
 
 import android.content.Intent
 import android.net.Uri
@@ -80,9 +80,9 @@ import com.moxmose.moxequiplog.ui.options.EquipmentIconProvider
 fun MediaSelector(
     photoUri: String?,
     iconIdentifier: String?,
-    category: String,
     onMediaSelected: (String?, String?) -> Unit,
     modifier: Modifier = Modifier,
+    category: String? = null,
     mediaLibrary: List<Media> = emptyList(),
     categories: List<Category> = emptyList(),
     onAddMedia: ((String, String) -> Unit)? = null,
@@ -131,7 +131,7 @@ fun MediaSelector(
                 AsyncImage(model = photoUri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
             }
             iconIdentifier != null -> {
-                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, category), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, category ?: ""), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
             }
             else -> {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -193,7 +193,7 @@ fun MediaPickerDialog(
             title = { Text("Elimina immagine") },
             text = {
                 Column {
-                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?'")
+                    Text("Eliminare definitivamente dalla libreria di '$categoryName'?")
                     if (isUsed) {
                         Spacer(Modifier.height(8.dp))
                         Text("ATTENZIONE: In uso!", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)

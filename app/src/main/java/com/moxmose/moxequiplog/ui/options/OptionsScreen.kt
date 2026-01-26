@@ -30,7 +30,7 @@ import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
-import com.moxmose.moxequiplog.ui.equipments.EquipmentMediaSelector
+import com.moxmose.moxequiplog.ui.components.MediaSelector
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -172,7 +172,7 @@ fun OptionsScreenContent(
             title = "Gestione Media e Default",
             description = "Punto unico per gestire i media. Seleziona una categoria specifica per impostare l'elemento di default per quella sezione."
         ) {
-            EquipmentMediaSelector(
+            MediaSelector(
                 photoUri = null,
                 iconIdentifier = null,
                 mediaLibrary = allMedia,
