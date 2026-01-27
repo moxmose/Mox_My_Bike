@@ -8,6 +8,9 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import com.moxmose.moxequiplog.data.AppSettingsManager
+import com.moxmose.moxequiplog.data.MediaRepository
+import com.moxmose.moxequiplog.data.local.EquipmentDao
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -19,6 +22,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -30,6 +34,8 @@ class OptionsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var testDataStore: DataStore<Preferences>
     private lateinit var appSettingsManager: AppSettingsManager
+    private lateinit var equipmentDao: EquipmentDao
+    private lateinit var mediaRepository: MediaRepository
     private lateinit var viewModel: OptionsViewModel
 
     @Before
@@ -40,12 +46,15 @@ class OptionsViewModelTest {
             produceFile = { testContext.preferencesDataStoreFile("test_settings") }
         )
         appSettingsManager = AppSettingsManager(testContext)
-        viewModel = OptionsViewModel(appSettingsManager)
+        equipmentDao = mockk(relaxed = true)
+        mediaRepository = mockk(relaxed = true)
+        viewModel = OptionsViewModel(appSettingsManager, equipmentDao, mediaRepository)
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        stopKoin()
     }
 
     @Test

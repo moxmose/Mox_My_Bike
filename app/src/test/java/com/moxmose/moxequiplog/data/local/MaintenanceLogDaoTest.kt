@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -40,6 +41,7 @@ class MaintenanceLogDaoTest {
     @After
     fun closeDatabase() {
         database.close()
+        stopKoin()
     }
 
     @Test
