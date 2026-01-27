@@ -3,6 +3,7 @@ package com.moxmose.moxequiplog.ui.maintenancelog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.sqlite.db.SimpleSQLiteQuery
+import com.moxmose.moxequiplog.data.local.CategoryDao
 import com.moxmose.moxequiplog.data.local.EquipmentDao
 import com.moxmose.moxequiplog.data.local.MaintenanceLog
 import com.moxmose.moxequiplog.data.local.MaintenanceLogDao
@@ -22,7 +23,8 @@ import kotlinx.coroutines.launch
 class MaintenanceLogViewModel(
     private val maintenanceLogDao: MaintenanceLogDao,
     equipmentDao: EquipmentDao,
-    operationTypeDao: OperationTypeDao
+    operationTypeDao: OperationTypeDao,
+    categoryDao: CategoryDao
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -50,6 +52,13 @@ class MaintenanceLogViewModel(
         initialValue = emptyList()
     )
 
+    val allCategories = categoryDao.getAllCategories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = emptyList()
+        )
+
     private fun buildQuery(
         searchQuery: String,
         sortProperty: SortProperty,
@@ -65,6 +74,7 @@ class MaintenanceLogViewModel(
                 e.description as equipmentDescription,
                 ot.description as operationTypeDescription,
                 e.photoUri as equipmentPhotoUri,
+                e.iconIdentifier as equipmentIconIdentifier,
                 ot.photoUri as operationTypePhotoUri,
                 ot.iconIdentifier as operationTypeIconIdentifier,
                 e.dismissed as equipmentDismissed,

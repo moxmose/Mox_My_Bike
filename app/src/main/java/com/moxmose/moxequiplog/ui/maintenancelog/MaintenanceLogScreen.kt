@@ -1,6 +1,7 @@
 package com.moxmose.moxequiplog.ui.maintenancelog
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,12 +19,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Done
@@ -37,20 +36,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.moxmose.moxequiplog.R
+import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Equipment
 import com.moxmose.moxequiplog.data.local.MaintenanceLog
 import com.moxmose.moxequiplog.data.local.MaintenanceLogDetails
 import com.moxmose.moxequiplog.data.local.OperationType
+import com.moxmose.moxequiplog.ui.components.MediaIcon
+import com.moxmose.moxequiplog.ui.options.OptionsViewModel
 import org.koin.androidx.compose.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-import com.moxmose.moxequiplog.R
+
 
 enum class SortProperty {
     DATE, EQUIPMENT, OPERATION, KILOMETERS, NOTES
@@ -60,9 +63,8 @@ enum class SortDirection {
     ASCENDING, DESCENDING
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
+fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel(), optionsViewModel: OptionsViewModel = koinViewModel()) {
     val logs by viewModel.logs.collectAsState()
     val equipments by viewModel.allEquipments.collectAsState()
     val operationTypes by viewModel.allOperationTypes.collectAsState()
@@ -70,6 +72,7 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
     val sortProperty by viewModel.sortProperty.collectAsState()
     val sortDirection by viewModel.sortDirection.collectAsState()
     val showDismissed by viewModel.showDismissed.collectAsState()
+    val allCategories by optionsViewModel.allCategories.collectAsState()
 
     val activeEquipments = remember(equipments) { equipments.filter { !it.dismissed }.sortedBy { it.displayOrder } }
     val activeOperationTypes = remember(operationTypes) { operationTypes.filter { !it.dismissed }.sortedBy { it.displayOrder } }
@@ -102,7 +105,8 @@ fun MaintenanceLogScreen(viewModel: MaintenanceLogViewModel = koinViewModel()) {
             editingCardId = null
         },
         onDismissLog = viewModel::dismissLog,
-        onRestoreLog = viewModel::restoreLog
+        onRestoreLog = viewModel::restoreLog,
+        allCategories = allCategories
     )
 }
 
@@ -130,6 +134,7 @@ fun MaintenanceLogScreenContent(
     onUpdateLog: (MaintenanceLog) -> Unit,
     onDismissLog: (MaintenanceLog) -> Unit,
     onRestoreLog: (MaintenanceLog) -> Unit,
+    allCategories: List<Category>
 ) {
     var showSortMenu by remember { mutableStateOf(false) }
 
@@ -160,7 +165,8 @@ fun MaintenanceLogScreenContent(
                 onConfirm = { log ->
                     onAddLog(log.equipmentId, log.operationTypeId, log.notes, log.kilometers, log.date, log.color)
                     onShowAddDialogChange(false)
-                }
+                },
+                allCategories = allCategories
             )
         }
 
@@ -224,7 +230,8 @@ fun MaintenanceLogScreenContent(
                         onEdit = { onEditLog(logDetail.log) },
                         onSave = onUpdateLog,
                         onDismiss = { onDismissLog(logDetail.log) },
-                        onRestore = { onRestoreLog(logDetail.log) }
+                        onRestore = { onRestoreLog(logDetail.log) },
+                        allCategories = allCategories
                     )
                 }
             }
@@ -238,7 +245,8 @@ fun MaintenanceLogDialog(
     equipments: List<Equipment>,
     operationTypes: List<OperationType>,
     onDismissRequest: () -> Unit,
-    onConfirm: (MaintenanceLog) -> Unit
+    onConfirm: (MaintenanceLog) -> Unit,
+    allCategories: List<Category>
 ) {
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
@@ -290,16 +298,17 @@ fun MaintenanceLogDialog(
                         readOnly = true,
                         label = { Text(stringResource(R.string.navigation_equipments)) },
                         leadingIcon = {
-                            selectedEquipment?.photoUri?.let {
-                                AsyncImage(
-                                    model = it,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp).clip(CircleShape)
-                                )
-                            } ?: Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(24.dp))
+                            MediaIcon(
+                                photoUri = selectedEquipment?.photoUri,
+                                iconIdentifier = selectedEquipment?.iconIdentifier,
+                                modifier = Modifier.size(24.dp),
+                                category = "EQUIPMENT"
+                            )
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isEquipmentDropdownExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = isEquipmentDropdownExpanded,
@@ -309,13 +318,12 @@ fun MaintenanceLogDialog(
                             DropdownMenuItem(
                                 text = { Text(equipment.description.takeIf { it.isNotBlank() } ?: "id:${equipment.id} - no description") },
                                 leadingIcon = {
-                                    equipment.photoUri?.let {
-                                        AsyncImage(
-                                            model = it,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(24.dp).clip(CircleShape)
-                                        )
-                                    } ?: Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    MediaIcon(
+                                        photoUri = equipment.photoUri,
+                                        iconIdentifier = equipment.iconIdentifier,
+                                        modifier = Modifier.size(24.dp),
+                                        category = "EQUIPMENT"
+                                    )
                                 },
                                 onClick = {
                                     selectedEquipment = equipment
@@ -335,16 +343,17 @@ fun MaintenanceLogDialog(
                         readOnly = true,
                         label = { Text(stringResource(R.string.navigation_operations)) },
                         leadingIcon = {
-                            selectedOperationType?.photoUri?.let {
-                                AsyncImage(
-                                    model = it,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp).clip(CircleShape)
-                                )
-                            } ?: Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
+                            MediaIcon(
+                                photoUri = selectedOperationType?.photoUri,
+                                iconIdentifier = selectedOperationType?.iconIdentifier,
+                                modifier = Modifier.size(24.dp),
+                                category = "OPERATION"
+                            )
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isOperationDropdownExpanded) },
-                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = isOperationDropdownExpanded,
@@ -354,15 +363,12 @@ fun MaintenanceLogDialog(
                             DropdownMenuItem(
                                 text = { Text(operation.description.takeIf { it.isNotBlank() } ?: "id:${operation.id} - no description") },
                                 leadingIcon = {
-                                    if (operation.photoUri != null) {
-                                        AsyncImage(
-                                            model = operation.photoUri,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(24.dp).clip(CircleShape)
-                                        )
-                                    } else {
-                                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
-                                    }
+                                    MediaIcon(
+                                        photoUri = operation.photoUri,
+                                        iconIdentifier = operation.iconIdentifier,
+                                        modifier = Modifier.size(24.dp),
+                                        category = "OPERATION"
+                                    )
                                 },
                                 onClick = {
                                     selectedOperationType = operation
@@ -445,7 +451,8 @@ fun MaintenanceLogCard(
     onSave: (MaintenanceLog) -> Unit,
     onDismiss: () -> Unit,
     onRestore: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    allCategories: List<Category>
 ) {
     var editedNotes by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.notes ?: "") }
     var editedKilometers by remember(logDetail, isEditing) { mutableStateOf(logDetail.log.kilometers?.toString() ?: "") }
@@ -458,6 +465,12 @@ fun MaintenanceLogCard(
 
     val cardAlpha = if (logDetail.log.dismissed) 0.5f else 1f
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    val equipmentCategory = allCategories.find { it.id == "EQUIPMENT" }
+    val operationCategory = allCategories.find { it.id == "OPERATION" }
+
+    val equipmentBorderColor = equipmentCategory?.color?.let { Color(android.graphics.Color.parseColor(it)) } ?: MaterialTheme.colorScheme.primary
+    val operationBorderColor = operationCategory?.color?.let { Color(android.graphics.Color.parseColor(it)) } ?: MaterialTheme.colorScheme.primary
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = editedDate)
@@ -504,16 +517,17 @@ fun MaintenanceLogCard(
                             readOnly = true,
                             label = { Text(stringResource(R.string.navigation_equipments)) },
                             leadingIcon = {
-                                selectedEquipment?.photoUri?.let {
-                                    AsyncImage(
-                                        model = it,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(24.dp).clip(CircleShape)
-                                    )
-                                } ?: Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(24.dp))
+                                MediaIcon(
+                                    photoUri = selectedEquipment?.photoUri,
+                                    iconIdentifier = selectedEquipment?.iconIdentifier,
+                                    modifier = Modifier.size(24.dp),
+                                    category = "EQUIPMENT"
+                                )
                             },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isEquipmentDropdownExpanded) },
-                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                            modifier = Modifier
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                .fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = isEquipmentDropdownExpanded,
@@ -523,13 +537,12 @@ fun MaintenanceLogCard(
                                 DropdownMenuItem(
                                     text = { Text(equipment.description.takeIf { it.isNotBlank() } ?: "id:${equipment.id} - no description") },
                                     leadingIcon = {
-                                        equipment.photoUri?.let {
-                                            AsyncImage(
-                                                model = it,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(24.dp).clip(CircleShape)
-                                            )
-                                        } ?: Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(24.dp))
+                                        MediaIcon(
+                                            photoUri = equipment.photoUri,
+                                            iconIdentifier = equipment.iconIdentifier,
+                                            modifier = Modifier.size(24.dp),
+                                            category = "EQUIPMENT"
+                                        )
                                     },
                                     onClick = {
                                         selectedEquipment = equipment
@@ -549,16 +562,17 @@ fun MaintenanceLogCard(
                             readOnly = true,
                             label = { Text(stringResource(R.string.navigation_operations)) },
                             leadingIcon = {
-                                selectedOperationType?.photoUri?.let {
-                                    AsyncImage(
-                                        model = it,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(24.dp).clip(CircleShape)
-                                    )
-                                } ?: Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
+                                MediaIcon(
+                                    photoUri = selectedOperationType?.photoUri,
+                                    iconIdentifier = selectedOperationType?.iconIdentifier,
+                                    modifier = Modifier.size(24.dp),
+                                    category = "OPERATION"
+                                )
                             },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isOperationDropdownExpanded) },
-                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                            modifier = Modifier
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                .fillMaxWidth()
                         )
                         ExposedDropdownMenu(
                             expanded = isOperationDropdownExpanded,
@@ -568,15 +582,12 @@ fun MaintenanceLogCard(
                                 DropdownMenuItem(
                                     text = { Text(operation.description.takeIf { it.isNotBlank() } ?: "id:${operation.id} - no description") },
                                     leadingIcon = {
-                                        if (operation.photoUri != null) {
-                                            AsyncImage(
-                                                model = operation.photoUri,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(24.dp).clip(CircleShape)
-                                            )
-                                        } else {
-                                            Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(24.dp))
-                                        }
+                                        MediaIcon(
+                                            photoUri = operation.photoUri,
+                                            iconIdentifier = operation.iconIdentifier,
+                                            modifier = Modifier.size(24.dp),
+                                            category = "OPERATION"
+                                        )
                                     },
                                     onClick = {
                                         selectedOperationType = operation
@@ -606,9 +617,20 @@ fun MaintenanceLogCard(
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val equipmentTextAlpha = if (logDetail.equipmentDismissed) 0.5f else 1f
-                        logDetail.equipmentPhotoUri?.let {
-                            AsyncImage(model = it, contentDescription = stringResource(R.string.equipment_photo), modifier = Modifier.size(24.dp).clip(CircleShape).graphicsLayer(alpha = equipmentTextAlpha))
-                        } ?: Icon(imageVector = Icons.AutoMirrored.Filled.List, contentDescription = stringResource(R.string.equipment_icon), modifier = Modifier.size(24.dp).graphicsLayer(alpha = equipmentTextAlpha))
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, equipmentBorderColor, CircleShape)
+                                .graphicsLayer(alpha = equipmentTextAlpha)
+                        ) {
+                            MediaIcon(
+                                photoUri = logDetail.equipmentPhotoUri,
+                                iconIdentifier = logDetail.equipmentIconIdentifier,
+                                modifier = Modifier.size(24.dp),
+                                category = "EQUIPMENT"
+                            )
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = (logDetail.equipmentDescription.takeIf { it.isNotBlank() } ?: "id:${logDetail.log.equipmentId} - no description") + if (logDetail.equipmentDismissed) " (dismissed)" else "",
@@ -620,10 +642,19 @@ fun MaintenanceLogCard(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val operationTypeAlpha = if (logDetail.operationTypeDismissed) 0.5f else 1f
-                        if (logDetail.operationTypePhotoUri != null) {
-                            AsyncImage(model = logDetail.operationTypePhotoUri, contentDescription = stringResource(R.string.operation_type_photo), modifier = Modifier.size(24.dp).clip(CircleShape).graphicsLayer(alpha = operationTypeAlpha))
-                        } else {
-                            Icon(imageVector = Icons.Default.Build, contentDescription = stringResource(R.string.operation_icon), modifier = Modifier.size(24.dp).graphicsLayer(alpha = operationTypeAlpha))
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, operationBorderColor, CircleShape)
+                                .graphicsLayer(alpha = operationTypeAlpha)
+                        ) {
+                            MediaIcon(
+                                photoUri = logDetail.operationTypePhotoUri,
+                                iconIdentifier = logDetail.operationTypeIconIdentifier,
+                                modifier = Modifier.size(24.dp),
+                                category = "OPERATION"
+                            )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
