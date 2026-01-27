@@ -1,6 +1,5 @@
 package com.moxmose.moxequiplog.ui.options
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,6 +38,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -67,6 +67,7 @@ import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
+import com.moxmose.moxequiplog.ui.components.MediaIcon
 import com.moxmose.moxequiplog.ui.components.MediaSelector
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -80,6 +81,7 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
 
     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
     var showColorPicker by rememberSaveable { mutableStateOf<String?>(null) }
+    var showMediaDialog by rememberSaveable { mutableStateOf(false) }
 
     OptionsScreenContent(
         modifier = modifier,
@@ -101,6 +103,8 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
         onShowAboutDialogChange = { showAboutDialog = it },
         showColorPicker = showColorPicker,
         onShowColorPickerChange = { showColorPicker = it },
+        showMediaDialog = showMediaDialog,
+        onShowMediaDialogChange = { showMediaDialog = it },
         onAddColor = viewModel::addColor,
         onUpdateColor = viewModel::updateColor,
         onUpdateColorsOrder = viewModel::updateColorsOrder,
@@ -108,6 +112,7 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OptionsScreenContent(
     modifier: Modifier = Modifier,
@@ -127,6 +132,8 @@ fun OptionsScreenContent(
     onShowAboutDialogChange: (Boolean) -> Unit,
     showColorPicker: String?,
     onShowColorPickerChange: (String?) -> Unit,
+    showMediaDialog: Boolean,
+    onShowMediaDialogChange: (Boolean) -> Unit,
     onAddColor: (String, String) -> Unit,
     onUpdateColor: (AppColor) -> Unit,
     onUpdateColorsOrder: (List<AppColor>) -> Unit,
@@ -142,6 +149,24 @@ fun OptionsScreenContent(
                     Text(stringResource(R.string.button_ok))
                 }
             }
+        )
+    }
+
+    if (showMediaDialog) {
+        MediaSelector(
+            photoUri = null,
+            iconIdentifier = null,
+            mediaLibrary = allMedia,
+            categories = allCategories,
+            onMediaSelected = { _, _ -> },
+            onAddMedia = onAddMedia,
+            onRemoveMedia = onRemoveMedia,
+            onUpdateMediaOrder = onUpdateMediaOrder,
+            onToggleMediaVisibility = onToggleMediaVisibility,
+            onSetDefaultInCategory = onSetCategoryDefault,
+            isPhotoUsed = isPhotoUsed,
+            isPrefsMode = true,
+            onDismissRequest = { onShowMediaDialogChange(false) }
         )
     }
 
@@ -209,21 +234,50 @@ fun OptionsScreenContent(
             title = "Gestione Media e Default",
             description = "Punto unico per gestire i media. Seleziona una categoria specifica per impostare l'elemento di default per quella sezione."
         ) {
-            MediaSelector(
-                photoUri = null,
-                iconIdentifier = null,
-                mediaLibrary = allMedia,
-                categories = allCategories,
-                onMediaSelected = { _, _ -> },
-                onAddMedia = onAddMedia,
-                onRemoveMedia = onRemoveMedia,
-                onUpdateMediaOrder = onUpdateMediaOrder,
-                onToggleMediaVisibility = onToggleMediaVisibility,
-                onSetDefaultInCategory = onSetCategoryDefault,
-                isPhotoUsed = isPhotoUsed,
-                isPrefsMode = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            OutlinedButton(
+                onClick = { onShowMediaDialogChange(true) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (allMedia.isEmpty()) {
+                            Text("Libreria vuota")
+                        } else {
+                            allMedia.distinctBy { it.uri }.take(4).forEach { media ->
+                                MediaIcon(
+                                    photoUri = media.uri.takeIf { it.startsWith("content://") },
+                                    iconIdentifier = media.uri.takeIf { !it.startsWith("content://") },
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Gestisci",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Gestisci Media",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -398,6 +452,7 @@ fun ColorItemCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddColorDialog(
     onDismiss: () -> Unit,

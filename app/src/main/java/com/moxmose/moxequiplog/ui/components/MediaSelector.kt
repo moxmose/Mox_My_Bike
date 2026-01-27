@@ -92,17 +92,17 @@ fun MediaSelector(
     onSetDefaultInCategory: ((String, String?, String?) -> Unit)? = null,
     isPhotoUsed: (suspend (String) -> Boolean)? = null,
     isPrefsMode: Boolean = false,
+    onDismissRequest: () -> Unit = {},
 ) {
-    var showPicker by remember { mutableStateOf(false) }
 
-    if (showPicker) {
+    if (isPrefsMode) {
         MediaPickerDialog(
-            onDismissRequest = { showPicker = false },
+            onDismissRequest = onDismissRequest,
             photoUri = photoUri,
             iconIdentifier = iconIdentifier,
             onMediaSelected = {
                 onMediaSelected(it.first, it.second)
-                showPicker = false
+                onDismissRequest()
             },
             mediaLibrary = mediaLibrary,
             categories = categories,
@@ -115,28 +115,51 @@ fun MediaSelector(
             isPrefsMode = isPrefsMode,
             forcedCategory = if (isPrefsMode) null else category
         )
-    }
+    } else {
+        var showPicker by remember { mutableStateOf(false) }
+        if (showPicker) {
+            MediaPickerDialog(
+                onDismissRequest = { showPicker = false },
+                photoUri = photoUri,
+                iconIdentifier = iconIdentifier,
+                onMediaSelected = {
+                    onMediaSelected(it.first, it.second)
+                    showPicker = false
+                },
+                mediaLibrary = mediaLibrary,
+                categories = categories,
+                onAddMedia = onAddMedia,
+                onRemoveMedia = onRemoveMedia,
+                onUpdateMediaOrder = onUpdateMediaOrder,
+                onToggleMediaVisibility = onToggleMediaVisibility,
+                onSetDefaultInCategory = onSetDefaultInCategory,
+                isPhotoUsed = isPhotoUsed,
+                isPrefsMode = isPrefsMode,
+                forcedCategory = if (isPrefsMode) null else category
+            )
+        }
 
-    Box(
-        modifier = modifier
-            .size(100.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-            .clickable { showPicker = true },
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            photoUri != null -> {
-                AsyncImage(model = photoUri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
-            }
-            iconIdentifier != null -> {
-                Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, category ?: ""), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-            }
-            else -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(imageVector = Icons.Default.NotInterested, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Nothing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(
+            modifier = modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                .clickable { showPicker = true },
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                photoUri != null -> {
+                    AsyncImage(model = photoUri, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+                }
+                iconIdentifier != null -> {
+                    Icon(imageVector = EquipmentIconProvider.getIcon(iconIdentifier, category ?: ""), contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+                else -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(imageVector = Icons.Default.NotInterested, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Nothing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
