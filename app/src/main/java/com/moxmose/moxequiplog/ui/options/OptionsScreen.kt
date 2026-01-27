@@ -250,10 +250,10 @@ fun OptionsScreenContent(
                         if (allMedia.isEmpty()) {
                             Text("Libreria vuota")
                         } else {
-                            allMedia.distinctBy { it.uri }.take(4).forEach { media ->
+                            allMedia.filter { !it.hidden }.distinctBy { it.uri }.take(4).forEach { media ->
                                 MediaIcon(
-                                    photoUri = media.uri.takeIf { it.startsWith("content://") },
-                                    iconIdentifier = media.uri.takeIf { !it.startsWith("content://") },
+                                    photoUri = if (media.mediaType == "IMAGE") media.uri else null,
+                                    iconIdentifier = if (media.mediaType == "ICON") media.uri.removePrefix("icon:") else null,
                                     modifier = Modifier.size(40.dp)
                                 )
                             }
