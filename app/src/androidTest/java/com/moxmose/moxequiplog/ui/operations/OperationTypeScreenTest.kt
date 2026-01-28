@@ -33,11 +33,18 @@ class OperationTypeScreenTest {
                 onToggleShowDismissed = {},
                 showAddDialog = false,
                 onShowAddDialogChange = {},
-                onAddOperationType = { _, _, _, _ -> },
+                onAddOperationType = { _, _, _ -> },
                 onUpdateOperationTypes = {},
                 onUpdateOperationType = {},
                 onDismissOperationType = {},
-                onRestoreOperationType = {}
+                onRestoreOperationType = {},
+                allCategories = emptyList(),
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> },
+                operationCategoryColor = null,
+                operationTypeMedia = emptyList(),
             )
         }
 
@@ -56,11 +63,18 @@ class OperationTypeScreenTest {
                 onToggleShowDismissed = {},
                 showAddDialog = false,
                 onShowAddDialogChange = { onShowAddDialogChangeCalled.set(it) },
-                onAddOperationType = { _, _, _, _ -> },
+                onAddOperationType = { _, _, _ -> },
                 onUpdateOperationTypes = {},
                 onUpdateOperationType = {},
                 onDismissOperationType = {},
-                onRestoreOperationType = {}
+                onRestoreOperationType = {},
+                allCategories = emptyList(),
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> },
+                operationCategoryColor = null,
+                operationTypeMedia = emptyList()
             )
         }
 
@@ -77,7 +91,14 @@ class OperationTypeScreenTest {
         composeTestRule.setContent {
             AddOperationTypeDialog(
                 onDismissRequest = {},
-                onConfirm = { desc, _, _, _ -> addedOperationInfo.set(desc) }
+                onConfirm = { desc, _, _ -> addedOperationInfo.set(desc) },
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> },
+                operationCategoryColor = null,
+                mediaLibrary = emptyList(),
+                categories = emptyList()
             )
         }
 

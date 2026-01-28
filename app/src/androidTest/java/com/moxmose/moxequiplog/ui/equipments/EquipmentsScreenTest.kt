@@ -30,15 +30,22 @@ class EquipmentsScreenTest {
         composeTestRule.setContent {
             EquipmentsScreenContent(
                 equipments = equipments,
+                equipmentMedia = emptyList(),
+                allCategories = emptyList(),
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                equipmentCategoryColor = null,
                 showDismissed = false,
                 onToggleShowDismissed = {},
                 showAddDialog = false,
                 onShowAddDialogChange = {},
-                onAddEquipment = { _, _ -> },
+                onAddEquipment = { _, _, _ -> },
                 onUpdateEquipments = {},
                 onUpdateEquipment = {},
                 onDismissEquipment = {},
-                onRestoreEquipment = {}
+                onRestoreEquipment = {},
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> }
             )
         }
 
@@ -53,15 +60,22 @@ class EquipmentsScreenTest {
         composeTestRule.setContent {
             EquipmentsScreenContent(
                 equipments = emptyList(),
+                equipmentMedia = emptyList(),
+                allCategories = emptyList(),
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                equipmentCategoryColor = null,
                 showDismissed = false,
                 onToggleShowDismissed = {},
                 showAddDialog = false,
                 onShowAddDialogChange = { onShowAddDialogChangeCalled.set(it) },
-                onAddEquipment = { _, _ -> },
+                onAddEquipment = { _, _, _ -> },
                 onUpdateEquipments = {},
                 onUpdateEquipment = {},
                 onDismissEquipment = {},
-                onRestoreEquipment = {}
+                onRestoreEquipment = {},
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> }
             )
         }
 
@@ -73,12 +87,19 @@ class EquipmentsScreenTest {
     @Test
     fun addEquipmentDialog_onConfirm_callsOnAddEquipment() {
         val newEquipmentDescription = "New Gravel Equipment"
-        val addedEquipmentInfo = AtomicReference<Pair<String, String?>>()
+        val addedEquipmentInfo = AtomicReference<Triple<String, String?, String?>>()
 
         composeTestRule.setContent {
             AddEquipmentDialog(
                 onDismissRequest = {},
-                onConfirm = { addedEquipmentInfo.set(it) }
+                onConfirm = { desc, uri, icon -> addedEquipmentInfo.set(Triple(desc, uri, icon)) },
+                defaultIcon = null,
+                defaultPhotoUri = null,
+                mediaLibrary = emptyList(),
+                categories = emptyList(),
+                equipmentCategoryColor = null,
+                onAddMedia = { _, _ -> },
+                onToggleMediaVisibility = { _, _ -> }
             )
         }
 

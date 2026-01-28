@@ -32,6 +32,7 @@ class MaintenanceLogScreenTest {
                 equipmentDescription = "Road Equipment",
                 operationTypeDescription = "Oil Change",
                 equipmentPhotoUri = null,
+                equipmentIconIdentifier = null,
                 operationTypePhotoUri = null,
                 operationTypeIconIdentifier = null,
                 equipmentDismissed = false,
@@ -61,7 +62,8 @@ class MaintenanceLogScreenTest {
                 onEditLog = {},
                 onUpdateLog = {},
                 onDismissLog = {},
-                onRestoreLog = {}
+                onRestoreLog = {},
+                allCategories = emptyList()
             )
         }
 
@@ -95,7 +97,8 @@ class MaintenanceLogScreenTest {
                 onEditLog = {},
                 onUpdateLog = {},
                 onDismissLog = {},
-                onRestoreLog = {}
+                onRestoreLog = {},
+                allCategories = emptyList()
             )
         }
 
@@ -113,7 +116,8 @@ class MaintenanceLogScreenTest {
                 equipments = dummyEquipments,
                 operationTypes = dummyOps,
                 onDismissRequest = {},
-                onConfirm = { confirmedLog.set(it) }
+                onConfirm = { confirmedLog.set(it) },
+                allCategories = emptyList()
             )
         }
 
@@ -138,11 +142,16 @@ class MaintenanceLogScreenTest {
             log = MaintenanceLog(id = 1, equipmentId = 1, operationTypeId = 1, date = 0L),
             equipmentDescription = "Road Equipment",
             operationTypeDescription = "Oil Change",
-            equipmentPhotoUri = null, operationTypePhotoUri = null, operationTypeIconIdentifier = null, equipmentDismissed = false, operationTypeDismissed = false
+            equipmentPhotoUri = null,
+            equipmentIconIdentifier = null,
+            operationTypePhotoUri = null,
+            operationTypeIconIdentifier = null,
+            equipmentDismissed = false,
+            operationTypeDismissed = false
         )
 
         composeTestRule.setContent {
-            MaintenanceLogCard(logDetail = log, equipments = dummyEquipments, operationTypes = dummyOps, isExpanded = false, isEditing = false, onExpand = { onCardExpandedCalled.set(true) }, onEdit = {}, onSave = {}, onDismiss = {}, onRestore = {})
+            MaintenanceLogCard(logDetail = log, equipments = dummyEquipments, operationTypes = dummyOps, isExpanded = false, isEditing = false, onExpand = { onCardExpandedCalled.set(true) }, onEdit = {}, onSave = {}, onDismiss = {}, onRestore = {}, allCategories = emptyList())
         }
 
         composeTestRule.onNodeWithText("Road Equipment").performClick()
@@ -157,11 +166,16 @@ class MaintenanceLogScreenTest {
             log = MaintenanceLog(id = 1, equipmentId = 1, operationTypeId = 1, date = 0L),
             equipmentDescription = "Road Equipment",
             operationTypeDescription = "Oil Change",
-            equipmentPhotoUri = null, operationTypePhotoUri = null, operationTypeIconIdentifier = null, equipmentDismissed = false, operationTypeDismissed = false
+            equipmentPhotoUri = null,
+            equipmentIconIdentifier = null,
+            operationTypePhotoUri = null,
+            operationTypeIconIdentifier = null,
+            equipmentDismissed = false,
+            operationTypeDismissed = false
         )
 
         composeTestRule.setContent {
-            MaintenanceLogCard(logDetail = log, equipments = dummyEquipments, operationTypes = dummyOps, isExpanded = false, isEditing = false, onExpand = {}, onEdit = { onEditCalled.set(true) }, onSave = {}, onDismiss = {}, onRestore = {})
+            MaintenanceLogCard(logDetail = log, equipments = dummyEquipments, operationTypes = dummyOps, isExpanded = false, isEditing = false, onExpand = {}, onEdit = { onEditCalled.set(true) }, onSave = {}, onDismiss = {}, onRestore = {}, allCategories = emptyList())
         }
 
         composeTestRule.onNodeWithContentDescription("Edit Log").performClick()
