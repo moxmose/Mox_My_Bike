@@ -17,6 +17,7 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -147,4 +148,55 @@ class OptionsViewModelTest {
         coVerify { mediaRepository.addMedia(uri, category) }
     }
 
+    @Test
+    fun toggleMediaVisibility_withValidData_callsRepository() = runTest {
+        val uri = "test_uri"
+        val category = "test_category"
+
+        // Chiama la funzione sul ViewModel
+        viewModel.toggleMediaVisibility(uri, category)
+
+        // Fai avanzare lo scheduler per eseguire la coroutine
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Verifica che il ViewModel abbia delegato la chiamata al repository
+        coVerify { mediaRepository.toggleMediaVisibility(uri, category) }
+    }
+
+    @Test
+    fun removeMedia_withValidData_callsRepository() = runTest {
+        val uri = "test_uri"
+        val category = "test_category"
+
+        // Chiama la funzione sul ViewModel
+        viewModel.removeMedia(uri, category)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mediaRepository.removeMedia(uri, category) }
+    }
+
+    @Test
+    fun removeMedia_whenRepositoryThrowsError_sendsUiEvent() = runTest {
+        val uri = "test_uri"
+        val category = "test_category"
+        val error = RuntimeException("Simulated database error")
+
+        // Istruisci il mock a lanciare un'''eccezione quando viene chiamato
+        coEvery { mediaRepository.removeMedia(uri, category) } throws error
+
+        // Avvia una coroutine per ascoltare gli eventi in modo non bloccante
+        val job = launch {
+            viewModel.uiEvents.test {
+                assertEquals(OptionsViewModel.OptionsUiEvent.RemoveMediaFailed, awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+        // Chiama la funzione che causa l'''errore
+        viewModel.removeMedia(uri, category)
+
+        // Attendi che il test nel launch finisca
+        job.join()
+    }
 }

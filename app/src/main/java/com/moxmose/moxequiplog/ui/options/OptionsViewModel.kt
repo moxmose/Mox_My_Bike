@@ -8,9 +8,12 @@ import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.EquipmentDao
 import com.moxmose.moxequiplog.data.local.Media
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -19,6 +22,13 @@ class OptionsViewModel(
     private val equipmentDao: EquipmentDao,
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
+
+    sealed class OptionsUiEvent {
+        data object RemoveMediaFailed : OptionsUiEvent()
+    }
+
+    private val _uiEvents = Channel<OptionsUiEvent>()
+    val uiEvents: Flow<OptionsUiEvent> = _uiEvents.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -80,7 +90,11 @@ class OptionsViewModel(
 
     fun removeMedia(uri: String, category: String) {
         viewModelScope.launch {
-            mediaRepository.removeMedia(uri, category)
+            try {
+                mediaRepository.removeMedia(uri, category)
+            } catch (e: Exception) {
+                _uiEvents.send(OptionsUiEvent.RemoveMediaFailed)
+            }
         }
     }
 

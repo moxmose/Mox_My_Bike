@@ -66,4 +66,9 @@
     <string name="operation_icon">Operation icon</string>
     <string name="select_media">Select media</string>
 
+    <!-- Error Handling -->
+    <string name="error_dialog_title">Error</string>
+    <string name="error_remove_media_failed">Could not remove media. It might be in use.</string>
+    <string name="error_unknown">An unknown error occurred.</string>
+
 </resources>

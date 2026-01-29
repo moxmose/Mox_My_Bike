@@ -44,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +70,7 @@ import com.moxmose.moxequiplog.data.local.Media
 import com.moxmose.moxequiplog.ui.components.DraggableLazyColumn
 import com.moxmose.moxequiplog.ui.components.MediaIcon
 import com.moxmose.moxequiplog.ui.components.MediaSelector
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
@@ -82,6 +84,39 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
     var showColorPicker by rememberSaveable { mutableStateOf<String?>(null) }
     var showMediaDialog by rememberSaveable { mutableStateOf(false) }
+    var errorToShow by remember { mutableStateOf<OptionsViewModel.OptionsUiEvent?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvents.collectLatest { event ->
+            errorToShow = event
+        }
+    }
+
+    errorToShow?.let { event ->
+        AlertDialog(
+            onDismissRequest = { errorToShow = null },
+            title = { Text(stringResource(R.string.error_dialog_title)) },
+            text = {
+                when (event) {
+                    is OptionsViewModel.OptionsUiEvent.RemoveMediaFailed -> {
+                        Text(stringResource(R.string.error_remove_media_failed))
+                    }
+                    else -> {
+                        if (BuildConfig.DEBUG) {
+                            throw IllegalStateException("Unhandled UI Event: $event")
+                        } else {
+                            Text(stringResource(R.string.error_unknown))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { errorToShow = null }) {
+                    Text(stringResource(R.string.button_ok))
+                }
+            }
+        )
+    }
 
     OptionsScreenContent(
         modifier = modifier,

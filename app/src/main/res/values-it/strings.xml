@@ -56,4 +56,10 @@
     <string name="restore_log">Riprstina registrazione</string>
     <string name="bike_icon">Icona mezzo</string>
     <string name="operation_icon">Icona operazione</string>
+
+    <!-- Gestione Errori -->
+    <string name="error_dialog_title">Errore</string>
+    <string name="error_remove_media_failed">Impossibile rimuovere il media. Potrebbe essere in uso.</string>
+    <string name="error_unknown">Si è verificato un errore sconosciuto.</string>
+
 </resources>
