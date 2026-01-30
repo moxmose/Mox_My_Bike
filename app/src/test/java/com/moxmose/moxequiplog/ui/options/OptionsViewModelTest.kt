@@ -12,8 +12,10 @@ import com.moxmose.moxequiplog.data.MediaRepository
 import com.moxmose.moxequiplog.data.local.AppColor
 import com.moxmose.moxequiplog.data.local.Category
 import com.moxmose.moxequiplog.data.local.EquipmentDao
+import com.moxmose.moxequiplog.data.local.Media
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -198,5 +200,78 @@ class OptionsViewModelTest {
 
         // Attendi che il test nel launch finisca
         job.join()
+    }
+
+    @Test
+    fun updateMediaOrder_withValidData_callsRepository() = runTest {
+        val mediaList: List<Media> = listOf(mockk(), mockk())
+
+
+        // Chiama la funzione sul ViewModel
+        viewModel.updateMediaOrder(mediaList)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mediaRepository.updateMediaOrder(mediaList)}
+    }
+
+    @Test
+    fun updateCategoryColor_withValidData_callsRepository() = runTest {
+        val categoryId = "any_valid_category_id"
+        val colorHex = "#00FFBB"
+
+        // Chiama la funzione sul ViewModel
+        viewModel.updateCategoryColor(categoryId, colorHex)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mediaRepository.updateCategoryColor(categoryId, colorHex) }
+    }
+
+    @Test
+    fun addColor_withValidData_callsRepository() = runTest {
+        val hex = "#00FFBB"
+        val name = "ColorName"
+
+        // Chiama la funzione sul ViewModel
+        viewModel.addColor(hex, name)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mediaRepository.addColor(hex, name) }
+    }
+
+    @Test
+    fun updateColor_whenNameIsBlank_sendsInvalidNameEvent() = runTest {
+        val invalidColor: AppColor = mockk()
+        every { invalidColor.name } returns " "
+
+        viewModel.uiEvents.test {
+            viewModel.updateColor(invalidColor)
+            assertEquals(OptionsViewModel.OptionsUiEvent.ColorNameInvalid, awaitItem())
+        }
+    }
+
+    @Test
+    fun updateColor_whenRepositoryThrowsError_sendsUpdateFailedEvent() = runTest {
+        val validColor: AppColor = mockk()
+        every { validColor.name } returns "Valid Name"
+        coEvery { mediaRepository.updateColor(validColor) } throws RuntimeException()
+
+        viewModel.uiEvents.test {
+            viewModel.updateColor(validColor)
+            assertEquals(OptionsViewModel.OptionsUiEvent.UpdateColorFailed, awaitItem())
+        }
+    }
+
+    @Test
+    fun updateColor_withValidData_callsRepository() = runTest {
+        val validColor: AppColor = mockk()
+        every { validColor.name } returns "Valid Name"
+
+        viewModel.updateColor(validColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { mediaRepository.updateColor(validColor) }
     }
 }

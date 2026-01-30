@@ -25,6 +25,8 @@ class OptionsViewModel(
 
     sealed class OptionsUiEvent {
         data object RemoveMediaFailed : OptionsUiEvent()
+        data object UpdateColorFailed : OptionsUiEvent()
+        data object ColorNameInvalid : OptionsUiEvent()
     }
 
     private val _uiEvents = Channel<OptionsUiEvent>()
@@ -117,8 +119,16 @@ class OptionsViewModel(
     }
 
     fun updateColor(color: AppColor) {
+        if (color.name.isBlank()) {
+            viewModelScope.launch { _uiEvents.send(OptionsUiEvent.ColorNameInvalid) }
+            return
+        }
         viewModelScope.launch {
-            mediaRepository.updateColor(color)
+            try {
+                mediaRepository.updateColor(color)
+            } catch (e: Exception) {
+                _uiEvents.send(OptionsUiEvent.UpdateColorFailed)
+            }
         }
     }
 

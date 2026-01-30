@@ -60,6 +60,8 @@
     <!-- Gestione Errori -->
     <string name="error_dialog_title">Errore</string>
     <string name="error_remove_media_failed">Impossibile rimuovere il media. Potrebbe essere in uso.</string>
+    <string name="error_update_color_failed">Impossibile aggiornare il colore.</string>
+    <string name="error_color_name_invalid">Il nome del colore non può essere vuoto.</string>
     <string name="error_unknown">Si è verificato un errore sconosciuto.</string>
 
 </resources>

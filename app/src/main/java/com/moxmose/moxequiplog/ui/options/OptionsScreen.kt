@@ -101,6 +101,12 @@ fun OptionsScreen(modifier: Modifier = Modifier, viewModel: OptionsViewModel = k
                     is OptionsViewModel.OptionsUiEvent.RemoveMediaFailed -> {
                         Text(stringResource(R.string.error_remove_media_failed))
                     }
+                    is OptionsViewModel.OptionsUiEvent.UpdateColorFailed -> {
+                        Text(stringResource(R.string.error_update_color_failed))
+                    }
+                    is OptionsViewModel.OptionsUiEvent.ColorNameInvalid -> {
+                        Text(stringResource(R.string.error_color_name_invalid))
+                    }
                     else -> {
                         if (BuildConfig.DEBUG) {
                             throw IllegalStateException("Unhandled UI Event: $event")

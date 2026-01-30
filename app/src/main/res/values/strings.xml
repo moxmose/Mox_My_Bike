@@ -69,6 +69,8 @@
     <!-- Error Handling -->
     <string name="error_dialog_title">Error</string>
     <string name="error_remove_media_failed">Could not remove media. It might be in use.</string>
+    <string name="error_update_color_failed">Failed to update color.</string>
+    <string name="error_color_name_invalid">Color name cannot be empty.</string>
     <string name="error_unknown">An unknown error occurred.</string>
 
 </resources>
